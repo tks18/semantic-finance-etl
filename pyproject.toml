@@ -2,7 +2,11 @@
 name = "semantic-finance-etl"
 version = "0.1.0"
 description = "A local, high-performance, configuration-driven ETL application that ingests disparate personal finance data (custom SQL dumps, messy vendor Excels) and builds an AI-Ready, vector-embedded SQLite database using Polars and sqlite-vec"
+authors = [
+  { name="Shan", email="tksudharshan@gmail.com" },
+]
 readme = "README.md"
+keywords = ["Personal-finance", "Polars", "ETL", "Big Data", "Excel", "Power BI", "Automation", "Analytics", "Finance", "Investments", "Finance-Manager"]
 requires-python = ">=3.13"
 dependencies = [
     "customtkinter>=6.0.0",
@@ -13,3 +17,20 @@ dependencies = [
     "sentence-transformers>=5.6.0",
     "sqlite-vec>=0.1.9",
 ]
+
+[dependency-groups]
+dev = [
+    "poethepoet>=0.48.0",
+    "tkreload>=1.0.4",
+]
+
+
+[project.urls]
+Homepage = "https://github.com/tks18/semantic-finance-etl"
+Documentation = "https://github.com/tks18/semantic-finance-etl#readme"
+Repository = "https://github.com/tks18/semantic-finance-etl"
+Issues = "https://github.com/tks18/semantic-finance-etl/issues"
+Changelog = "https://github.com/tks18/semantic-finance-etl/releases"
+
+[tool.poe.tasks]
+dev = "tkreload main.py"
