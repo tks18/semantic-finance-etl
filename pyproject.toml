@@ -1,0 +1,15 @@
+[project]
+name = "semantic-finance-etl"
+version = "0.1.0"
+description = "A local, high-performance, configuration-driven ETL application that ingests disparate personal finance data (custom SQL dumps, messy vendor Excels) and builds an AI-Ready, vector-embedded SQLite database using Polars and sqlite-vec"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "customtkinter>=6.0.0",
+    "fastexcel>=0.20.2",
+    "pandas>=3.0.3",
+    "polars>=1.42.1",
+    "pydantic>=2.13.4",
+    "sentence-transformers>=5.6.0",
+    "sqlite-vec>=0.1.9",
+]

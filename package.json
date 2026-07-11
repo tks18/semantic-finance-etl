@@ -1,0 +1,36 @@
+{
+  "name": "semantic-finance-etl",
+  "description": "A local, high-performance, configuration-driven ETL application that ingests disparate personal finance data (custom SQL dumps, messy vendor Excels) and builds an AI-Ready, vector-embedded SQLite database using Polars and sqlite-vec",
+  "version": "0.1.0",
+  "repository": "https://github.com/tks18/pyquery",
+  "author": "tks18 <tksudharshan@gmail.com>",
+  "license": "GPL-3.0-only",
+  "packageManager": "yarn@4.17.1",
+  "devDependencies": {
+    "@commitlint/cli": "^21.2.1",
+    "@commitlint/config-conventional": "^21.2.0",
+    "commitizen": "^4.3.2",
+    "conventional-recommended-bump": "^12.1.0",
+    "cz-conventional-changelog": "^3.3.0",
+    "eslint": "^10.6.0",
+    "husky": "^9.1.7",
+    "standard-version": "^9.5.0"
+  },
+  "config": {
+    "commitizen": {
+      "path": "./node_modules/cz-conventional-changelog"
+    }
+  },
+  "scripts": {
+    "prepare": "husky",
+    "init:cz": "commitizen init cz-conventional-changelog --yarn --dev --exact",
+    "git:stage": "git add",
+    "git:commit": "cz",
+    "git:push": "git push --follow-tags origin dev",
+    "release:pre": "standard-version --commit-all --prerelease",
+    "release:patch": "standard-version --commit-all --release-as patch",
+    "release:minor": "standard-version --commit-all --release-as minor",
+    "release:major": "standard-version --commit-all --release-as major",
+    "release:as": "standard-version --commit-all --release-as"
+  }
+}
