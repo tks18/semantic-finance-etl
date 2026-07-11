@@ -1,6 +1,6 @@
 [project]
 name = "semantic-finance-etl"
-version = "0.1.0"
+version = "0.1.1-0"
 description = "A local, high-performance, configuration-driven ETL application that ingests disparate personal finance data (custom SQL dumps, messy vendor Excels) and builds an AI-Ready, vector-embedded SQLite database using Polars and sqlite-vec"
 authors = [
   { name="Shan", email="tksudharshan@gmail.com" },
