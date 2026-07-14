@@ -1,1576 +1,1585 @@
-I reviewed your current design doc and your new requirements change the architecture in an important way:
-
-> **This should not be a hardcoded finance ETL app with a few table classes.**
->
-> It should be a **local ETL engine** that can run finance-oriented, config-defined, plugin-extended data workflows.
-
-That is the right direction.
-
-Below is a **reframed, expanded, v2 design document** for `semantic-finance-ETL` that incorporates your five changes and aligns them with your original rules: local-first, Pydantic-driven, SQLite target, Polars-heavy, plugin-based, idempotent, semantic-ready.
-
 # `semantic-finance-ETL` v2 Design Document
+## Local-first, privacy-preserving, configuration-driven finance ETL and semantic analytics engine
 
-## 1. Executive Summary
+## 1. Executive Design Decision
 
-`semantic-finance-ETL` will be a **local-first, privacy-preserving, configuration-driven ETL engine** for personal finance and investment data.
+`semantic-finance-ETL` should be designed as a **generic ETL engine**, not as a hardcoded “personal finance app with a few pipelines.”
 
-It will:
+That means:
 
-- ingest data from **Excel, CSV, parquet, JSON, SQLite, and other local SQL sources**
-- discover source inputs using **pluggable discovery strategies**
-- transform data using **configurable pipelines plus optional custom plugins**
-- validate rows using **Pydantic-generated runtime models**
-- load data into a **semantically rich local SQLite database**
-- build **derived analytical tables** from base tables
-- maintain **lineage, idempotency, and dead-letter handling**
-- support **FTS5 + sqlite-vec** for future local semantic and agentic usage
-- expose everything via **configuration**, with a future **CustomTkinter UI** as the configuration and orchestration surface
+- **sources are dynamic**
+- **tables are dynamic**
+- **schemas are dynamic**
+- **transformations are dynamic**
+- **semantic sentence generation is dynamic**
+- **analytical/derived tables are first-class**
+- **UI is only a configuration and execution shell**
+- **all behavior is driven by config + plugin registry + runtime model generation**
 
-## 2. The Most Important Architectural Shift
+The engine itself should only know **how to**:
 
-Your original doc assumed a partially hardcoded set of finance tables like `transactions`, `accounts`, `market_price`, etc.
+1. discover data
+2. read data
+3. normalize data
+4. transform data
+5. validate data via Pydantic
+6. create/update SQLite schema
+7. load data idempotently
+8. build semantic text
+9. create embeddings locally
+10. expose results to Power BI and local AI agents
 
-Your new requirement changes that.
+So the correct mental model is:
 
-## Final architectural stance
-
-The system should have **three layers of meaning**:
-
-### A. ETL Engine Layer
-Pure engine capabilities:
-
-- config loading
-- source discovery
-- source reading
-- transformation execution
-- validation
-- loading
-- run tracking
-- DLQ
-- lineage
-- schema compilation
-- semantic indexing
-
-This layer should **not hardcode business tables**.
-
-### B. Domain Pack Layer
-Optional reusable finance definitions:
-
-- starter schemas for `transactions`
-- starter schemas for `investment_transactions`
-- starter derived tables like `portfolio_analysis`
-- reusable transformation plugins
-- reusable semantic narrative builders
-
-This is optional convenience, not core engine truth.
-
-### C. Project Configuration Layer
-The real application definition:
-
-- what sources exist
-- how they are discovered
-- what tables to create
-- which columns to map
-- what types to use
-- what transformations to run
-- what derived tables depend on which base tables
-- what semantic tables to index
-
-This is where the actual behavior lives.
-
-> **Therefore: the app is an ETL engine; each project config defines its own finance warehouse.**
-
-That directly satisfies your requirement that the app itself should not hardcode tables.
+```text
+semantic-finance-ETL = configurable local ETL runtime
+not
+semantic-finance-ETL = hardcoded finance tables application
+```
 
 ---
 
-# 3. Core Design Principles
+## 2. Your Requested Changes, Converted into Design Decisions
 
-## 3.1 Local-first only
+## 2.1 Multi-source ingestion
+The system must support:
 
-Everything runs locally:
+- `xlsx`
+- `xlsm`
+- `csv`
+- `tsv`
+- `json`
+- `jsonl`
+- `parquet`
+- `sqlite`
+- other local SQL sources
+  - DuckDB
+  - PostgreSQL on localhost
+  - MySQL on localhost
+  - SQL Server on localhost
+  - any ODBC/JDBC-reachable local DB, if configured
+- future extension:
+  - XML
+  - fixed-width text
+  - Access exports
+  - zipped local archives
 
-- source files from local disk
-- source databases from local files or local network-accessible DBs
-- local SQLite warehouse
-- local embeddings
-- local FTS5
-- local sqlite-vec
-- no cloud services
-- no hosted vector DB
-- no external APIs
+**Design decision:** all source reading happens through a **plugin-based source adapter layer**.
 
-## 3.2 Configuration is the primary business definition
+---
 
-The configuration should define:
+## 2.2 Flexible source discovery and selection
+You explicitly want combinations like:
 
-- database path
-- sources
-- discoverers
-- file patterns
-- connection strings for local SQL sources
-- append strategy
+- select **latest modified file only**
+- select **latest created file only**
+- select **all files**
+- select files by pattern
+- select files recursively
+- select SQLite backup DBs from folder, then query only the selected DB(s)
+- append first then transform
+- transform first then append
+
+**Design decision:** split this into separate plugin concepts instead of one giant reader:
+
+- `SourceDiscoverer` → finds candidate files or DBs
+- `SourceSelector` → chooses which candidates to use
+- `SourceGrouper` → groups candidates into one logical batch
+- `SourceReader` → reads the actual file/DB/query
+- `CombineStrategy` → controls append-before/after-transform behavior
+
+This gives true mix-and-match modularity.
+
+---
+
+## 2.3 Config-first runtime
+You want all of this configurable:
+
+- db path
+- source definitions
+- per-folder behavior
 - table definitions
 - column mappings
-- transformations
+- schema mapping
+- transformation rules
+- semantic sentence formation
+- batch execution behavior
+
+**Design decision:** create a **configuration model hierarchy in Pydantic**, loaded from YAML/JSON/TOML, with the UI acting as a config editor.
+
+---
+
+## 2.4 Analytical tables as first-class entities
+You want tables like `portfolio_analysis` that depend on:
+
+- investment purchases
+- sales
+- market data
+- benchmark master
+- benchmark data
+
+and then compute:
+
+- XIRR
+- CAGR
+- return metrics
+- benchmark comparison
+- exposure metrics
+- summary analytics
+
+**Design decision:** support **derived tables / analytical tables** as DAG nodes depending on base tables.
+
+So the system has:
+
+- **base ingestion tables**
+- **canonical normalized tables**
+- **derived analytical tables**
+- **semantic document tables**
+- **search/index tables**
+
+---
+
+## 2.5 Semantic narrative templates in config
+You want to control the sentence formation from config/UI.
+
+**Design decision:** each table can define:
+
+- semantic title template
+- semantic body template
+- chunking behavior
+- searchable keyword fields
+- embedding inclusion rules
+
+So semantic indexing becomes configurable, not hardcoded.
+
+---
+
+## 2.6 Dynamic tables
+You want every config to define its own set of tables and columns.
+
+This is the biggest architectural shift.
+
+**Design decision:** use a **hybrid schema model**:
+
+### Fixed engine tables
+These are built-in and always exist:
+
+- `etl_runs`
+- `source_files`
+- `lineage_events`
+- `dead_letter_queue`
+- `schema_registry`
+- `semantic_documents`
+- `semantic_embeddings`
+- `config_snapshots`
+
+### Dynamic user tables
+These are created at runtime from config and compiled into:
+
+- Pydantic models
+- SQLite DDL
 - validation rules
-- load mode
-- derived table dependencies
-- semantic indexing behavior
+- lineage mappings
+- semantic templates
 
-## 3.3 Pydantic remains the schema source of truth
+This preserves your rule:
 
-You explicitly want Pydantic as the single source of truth.
+> Use Pydantic as the single source of truth.
 
-That still works even with dynamic tables.
-
-We solve the tension this way:
-
-### Static Pydantic models
-Used for system tables:
-
-- ETL runs
-- source assets
-- pipeline results
-- dead letter queue
-- semantic documents
-- embeddings
-- lineage records
-
-### Runtime-generated Pydantic models
-Used for config-defined business tables:
-
-- `transactions`
-- `investment_transactions`
-- `portfolio_analysis`
-- any custom user table
-
-These models are generated from config at runtime using validated table metadata.
-
-So there is still **no separate `schema.sql` truth**.
-
-## 3.4 Metadata-driven, plugin-extended
-
-Most workflows should work through config.
-
-But when config is not enough, the engine should support plugin hooks for:
-
-- discovery
-- reading
-- transformation
-- validation enrichment
-- key generation
-- derived table calculation
-- narrative generation
-- semantic chunking
-
-## 3.5 Idempotent by design
-
-The engine must safely re-run without duplicating data.
-
-It should combine:
-
-- source fingerprinting
-- run tracking
-- deterministic keys
-- row hashes
-- UPSERT rules
-- DLQ deduplication
-- derived table refresh policies
+Because the Pydantic models can be **generated dynamically at runtime** from configuration.
 
 ---
 
-# 4. Scope of Supported Source Types
-
-The system should support these local source families.
-
-## 4.1 File-based sources
-
-- `.xlsx`
-- `.xls`
-- `.csv`
-- `.tsv`
-- `.parquet`
-- `.json`
-- newline-delimited JSON
-- local text extracts when needed
-
-## 4.2 Local database sources
-
-- SQLite
-- DuckDB
-- PostgreSQL running locally
-- MySQL running locally
-- SQL Server running locally
-- any local SQL source supported by a plugin/driver
-
-## 4.3 Source object abstraction
-
-The old concept of `SourceFile` is too narrow now.
-
-Because not all sources are files.
-
-So the generalized concept should be:
-
-## `SourceAsset`
-
-A `SourceAsset` is one discoverable or executable input unit.
-
-Examples:
-
-- a file on disk
-- a table in SQLite
-- a SQL query result
-- a view in a local database
-- a folder snapshot
-
-Suggested types:
-
-- `FILE`
-- `SQLITE_TABLE`
-- `SQL_TABLE`
-- `SQL_QUERY`
-- `PARQUET_FILE`
-- `JSON_FILE`
-- `CSV_FILE`
-- `EXCEL_FILE`
-
-This is a better long-term abstraction than `SourceFile`.
-
----
-
-# 5. Source Discovery Plugin Architecture
-
-This is one of your most important additions.
-
-You do **not** want a single hardcoded folder-scanning behavior.
-
-You want source selection to be configurable.
-
-That means discovery becomes a first-class subsystem.
-
-## 5.1 Source discovery responsibilities
-
-A discoverer should answer:
-
-- what source assets are eligible for this run?
-- which file(s) from a folder should be picked?
-- should we recurse?
-- should we choose latest modified, latest created, all files, only new files, matching partitions, or a manifest-defined subset?
-
-## 5.2 Discoverer plugin types
-
-Recommended built-in discoverers:
-
-### File discoverers
-- `AllFilesDiscoverer`
-- `LatestModifiedFileDiscoverer`
-- `LatestCreatedFileDiscoverer`
-- `NewestNFilesDiscoverer`
-- `PatternMatchedFileDiscoverer`
-- `RecursiveFolderDiscoverer`
-- `UnprocessedFilesDiscoverer`
-- `ModifiedSinceWatermarkDiscoverer`
-- `ManifestListDiscoverer`
-
-### SQL discoverers
-- `SqlTableDiscoverer`
-- `SqlQueryDiscoverer`
-- `SqlIncrementalWindowDiscoverer`
-
-### Composite discoverers
-- `UnionDiscoverer`
-- `PriorityDiscoverer`
-- `FirstMatchDiscoverer`
-
-## 5.3 Discovery strategies you explicitly need
-
-From your requirement, these must exist:
-
-- take only latest modified file
-- take only latest created file
-- take all files in folder
-- recursive ingestion
-- file grouping before transform
-- transform before append
-- append before transform
-
-## 5.4 Discovery output
-
-Every discoverer should return standardized `DiscoveredAsset` metadata:
-
-- `asset_id`
-- `source_name`
-- `asset_type`
-- `location`
-- `relative_path`
-- `extension`
-- `size_bytes`
-- `created_at`
-- `modified_at`
-- `fingerprint_candidate`
-- `partition_values`
-- `group_key`
-- `metadata_json`
-
----
-
-# 6. Append and Processing Strategy Model
-
-You called out a very important need: sometimes data must be combined before transform, sometimes after.
-
-This should be explicit in config.
-
-## 6.1 Processing strategy enum
-
-Recommended:
-
-- `SINGLE_ASSET`
-- `RAW_THEN_TRANSFORM`
-- `TRANSFORM_THEN_APPEND`
-- `APPEND_CANONICAL_THEN_LOAD`
-- `SNAPSHOT_REPLACE`
-- `INCREMENTAL_UPSERT`
-
-## 6.2 When to use which
-
-### `RAW_THEN_TRANSFORM`
-Use when files are structurally similar.
-
-Example:
-- monthly CSV exports with same columns
-
-Flow:
-1. discover all files
-2. read them all
-3. append raw frames
-4. transform once
-5. validate
-6. load
-
-### `TRANSFORM_THEN_APPEND`
-Use when files are messy or inconsistent.
-
-Example:
-- old/new broker exports
-- Excel sheets with different offsets
-- files with different headers
-
-Flow:
-1. discover files
-2. read one
-3. clean one
-4. transform one
-5. validate one
-6. append canonical rows
-7. load
-
-### `SINGLE_ASSET`
-Use for one-off extracts or latest-file loads.
-
-### `SNAPSHOT_REPLACE`
-Use for holdings snapshot-style tables.
-
-### `INCREMENTAL_UPSERT`
-Use for transactions and market history.
-
----
-
-# 7. Dynamic, Config-Defined Tables
-
-This is the second biggest architectural change.
-
-## Final position
-
-Business tables should be defined in config, not in code.
-
-The engine should not know in advance whether the project has:
-
-- `transactions`
-- `expenses`
-- `credit_card_statement_lines`
-- `investment_transactions`
-- `portfolio_analysis`
-- `benchmark_rollup`
-- `crypto_positions`
-- `insurance_premium_schedule`
-
-It should compile these from config.
-
-## 7.1 Table definition model
-
-Each table config should define:
-
-- table name
-- kind: base / derived / semantic / staging
-- description
-- primary key strategy
-- columns
-- type definitions
-- nullable rules
-- unique constraints
-- indexes
-- source bindings
-- mapping rules
-- transformation pipeline
-- validation rules
-- load strategy
-- semantic indexing flag
-
-## 7.2 Column definition model
-
-Each column config should define:
-
-- column name
-- source aliases
-- logical type
-- SQLite type
-- nullable
-- default
-- description
-- semantic label
-- indexing hint
-- whether included in natural key
-- whether included in embedding text
-- whether included in lineage/audit
-
-## 7.3 Runtime model generation
-
-At runtime:
-
-1. config is loaded into Pydantic config models
-2. table specs are compiled into runtime Pydantic row models
-3. runtime models are compiled into SQLite DDL
-4. same runtime models validate incoming rows
-5. schema diff logic compares desired vs actual DB tables
-
-That preserves your rule:
-
-> **Pydantic remains the single source of truth.**
-
----
-
-# 8. Reconciling “Dynamic Tables” with “One Pipeline per Table”
-
-Your original architecture expects one pipeline class per table.
-
-Your new requirement says tables are dynamic and should not be hardcoded.
-
-These can be reconciled cleanly.
-
-## Recommended model
-
-### Generic pipeline engine
-Use a generic class:
-
-- `ConfiguredTablePipeline`
-
-This pipeline reads a `TableSpec` and executes:
-
-- extract
-- transform
-- validate
-- load
-
-### Optional specialized plugin pipeline
-For complex tables, allow:
-
-- `PythonTransformPlugin`
-- `SqlDerivedTablePlugin`
-- `PolarsDerivedTablePlugin`
-
-So the system becomes:
-
-- **config-driven by default**
-- **plugin-driven when complexity demands**
-
-That is the right compromise.
-
-Do **not** create a custom Python class for every possible business table from day one.
-
-Instead:
-
-- generic pipeline for most tables
-- specialized subclasses/plugins only where truly needed
-
----
-
-# 9. Derived and Analytical Tables
-
-This is a major requirement you added, and it should be a first-class feature.
-
-You want tables like:
-
-- `portfolio_analysis`
-- `xirr_results`
-- `cagr_results`
-- `benchmark_comparison`
-- `asset_allocation`
-- `performance_rollups`
-
-that depend on other tables such as:
-
-- `investment_purchases`
-- `investment_sales`
-- `market_data`
-- `benchmark_master`
-- `benchmark_data`
-
-## 9.1 Table kinds
-
-We should formally distinguish:
-
-- `BASE_TABLE`
-- `DERIVED_TABLE`
-- `MATERIALIZED_ANALYTICAL_TABLE`
-- `VIEW`
-- `SEMANTIC_DOCUMENT_TABLE`
-
-## 9.2 Dependency graph
-
-Every derived table should declare dependencies.
-
-Example:
-
-```yaml
-depends_on:
-  - investment_transactions
-  - market_prices
-  - benchmark_master
-  - benchmark_prices
-```
-
-The engine should build a DAG and execute in dependency order.
-
-## 9.3 Derived table execution engines
-
-Support at least these:
-
-- `SQL`
-- `POLARS`
-- `PYTHON_PLUGIN`
-
-## 9.4 Materialization modes
-
-Derived outputs should support:
-
-- `table`
-- `view`
-- `incremental_table`
-- `replace_table`
-
-## 9.5 Example analytical pipeline
-
-For `portfolio_analysis`:
-
-1. load base transactional and market tables
-2. compute cash flows
-3. join benchmark metadata
-4. compute current valuation
-5. calculate XIRR, CAGR, drawdown, return attribution
-6. materialize `portfolio_analysis`
-7. create semantic narratives
-8. embed and index for search
-
-This satisfies your requirement that analytical outputs themselves must also feed the semantic layer.
-
----
-
-# 10. Semantic Layer Design
-
-The semantic layer should not only index raw transactions.
-
-It should also index:
-
-- portfolio summaries
-- derived metrics
-- benchmark comparisons
-- anomaly findings
-- validation errors
-- lineage summaries
-- user notes
-
-## 10.1 Phased semantic architecture
-
-### Phase 1: FTS5
-- keyword search
-- very fast
-- zero extra model complexity
-
-### Phase 2: semantic documents
-Convert rows or groups of rows into natural-language text.
-
-Example:
-- “Portfolio Alpha returned 12.4% CAGR over 3 years and underperformed benchmark NIFTY 50 by 2.1%.”
-
-### Phase 3: embeddings
-Use local `sentence-transformers`:
-
-- preferably `all-MiniLM-L6-v2`
-
-### Phase 4: vector search
-Store embeddings using `sqlite-vec`.
-
-### Phase 5: hybrid search
-Combine:
-
-- FTS5 score
-- vector similarity
-- structured filters
-- semantic table metadata
-
-## 10.2 Semantic document pipeline
-
-For each indexed table:
-
-1. select rows or row groups
-2. build narrative text using templates/plugins
-3. chunk if needed
-4. compute embedding
-5. store in semantic documents table
-6. update FTS5
-7. update vector store
-
-## 10.3 Important design decision
-
-Do not embed every raw row blindly.
-
-Use configurable indexing policies:
-
-- embed per row
-- embed per account-period
-- embed per portfolio-period
-- embed only derived tables
-- embed only high-value tables
-
----
-
-# 11. Schema Strategy
-
-## 11.1 No static `schema.sql` as primary truth
-
-Correct.
-
-The database schema should be generated from:
-
-- static Pydantic system models
-- runtime-generated Pydantic business models from config
-
-## 11.2 SQLite generation
-
-The schema compiler should generate:
-
-- `CREATE TABLE`
-- indexes
-- unique constraints
-- FTS tables
-- vec tables
-- metadata catalog entries
-
-## 11.3 Schema evolution
-
-Because tables are dynamic, schema evolution is critical.
-
-Recommended schema migration modes:
-
-- additive column add
-- index add/drop
-- metadata-only update
-- rebuild table for breaking changes
-- versioned derived table regeneration
-
-## 11.4 Schema catalog
-
-Maintain system metadata tables such as:
-
-- `meta_tables`
-- `meta_columns`
-- `meta_indexes`
-- `meta_table_versions`
-- `meta_config_versions`
-
-This gives both Power BI and future agents a semantic catalog.
-
----
-
-# 12. Idempotency and Lineage
-
-This remains non-negotiable.
-
-## 12.1 Source-level idempotency
-
-For files, track:
-
-- path
-- size
-- modified timestamp
-- created timestamp
-- content hash
-
-For SQL sources, track:
-
-- source name
-- connection alias
-- table/query name
-- query text hash
-- optional source watermark
-- extract fingerprint
-
-## 12.2 Row-level idempotency
-
-Each loaded row should include:
-
-- `canonical_id`
-- `record_hash`
-- `source_asset_id`
-- `created_run_id`
-- `updated_run_id`
-
-## 12.3 Dead-letter idempotency
-
-DLQ rows should also have deterministic hashes to avoid repeated duplicate invalid rows on reruns.
-
-## 12.4 Derived table idempotency
-
-Derived tables should store:
-
-- dependency signature
-- calculation version
-- upstream run references
-- refresh mode
-
-That lets you know whether a derived table is stale or reproducible.
-
----
-
-# 13. Configuration Architecture
-
-This is the heart of the system.
-
-## 13.1 Config file philosophy
-
-A project should be runnable from configuration alone.
-
-The UI should simply edit this configuration.
-
-## 13.2 Config layers
-
-Recommended config stack:
-
-### A. `app.yaml`
-Engine-wide settings:
-- project name
-- SQLite path
-- logging
-- semantic defaults
-- plugin paths
-
-### B. `sources/*.yaml`
-Source definitions:
-- file folders
-- SQL connections
-- discovery strategies
-- reader settings
-
-### C. `tables/*.yaml`
-Table definitions:
-- schema
-- mappings
-- transforms
-- load rules
-
-### D. `derived/*.yaml`
-Derived table definitions:
+## 2.7 Phased implementation for AI agents
+You want a handoff-ready roadmap so any AI agent can build this properly.
+
+**Design decision:** define clear phases with:
+
+- scope
+- artifacts
+- core classes
+- tests
+- acceptance criteria
 - dependencies
-- engine
-- SQL or plugin reference
-- materialization mode
 
-### E. `semantic/*.yaml`
-Semantic indexing rules:
-- table selection
-- narrative templates
-- embedding settings
-
-## 13.3 Workspace concept
-
-Support multiple projects via workspaces:
-
-```text
-workspaces/
-  household_finance/
-  family_office/
-  retirement_tracking/
-  tax_pack/
-```
-
-Each workspace has its own config set and DB path.
-
-This directly supports your “any number of personal finances” requirement.
+I provide that in Section 15.
 
 ---
 
-# 14. Example Configuration Shape
+# 3. Architecture
 
-Here is a representative config shape.
+## 3.1 Architectural style
 
-```yaml
-project:
-  name: household_finance
-  database_path: ./data/warehouse/household_finance.db
-  timezone: Asia/Kolkata
+Use **layered architecture with dependency inversion**, but make the runtime **config-driven**.
 
-sources:
-  - name: broker_transactions_folder
-    kind: file_folder
-    discoverer:
-      plugin: latest_modified_file
-      options:
-        path: ./data/raw/broker_a
-        recursive: true
-        patterns: ["*.csv", "*.xlsx"]
-    reader:
-      plugin: auto_file_reader
-    processing_strategy: transform_then_append
+```text
+UI / CLI Layer
+    ↓
+Application Services / ETL Orchestration
+    ↓
+Domain Models + Contracts
+    ↓
+Infrastructure Implementations
 
-  - name: market_data_folder
-    kind: file_folder
-    discoverer:
-      plugin: all_files
-      options:
-        path: ./data/raw/market_data
-        recursive: true
-        patterns: ["*.parquet"]
-    reader:
-      plugin: parquet_reader
-    processing_strategy: raw_then_transform
-
-  - name: legacy_sqlite_budget
-    kind: sqlite_query
-    connection:
-      database_path: ./data/raw/legacy_budget.db
-    query:
-      sql: "select * from expenses"
-    reader:
-      plugin: sqlite_query_reader
-    processing_strategy: single_asset
-
-tables:
-  - name: investment_transactions
-    kind: base
-    source_bindings: [broker_transactions_folder]
-    primary_key:
-      strategy: natural_key_hash
-      fields:
-        - account_id
-        - transaction_date
-        - isin
-        - transaction_type
-        - units
-        - amount_minor
-    columns:
-      - name: account_id
-        type: str
-        required: true
-        source_aliases: ["account", "acct_no"]
-      - name: transaction_date
-        type: date
-        required: true
-        source_aliases: ["date", "txn_date"]
-      - name: isin
-        type: str
-        required: false
-      - name: amount_minor
-        type: int
-        required: true
-      - name: raw_description
-        type: str
-        required: false
-    transforms:
-      - type: rename_columns
-      - type: trim_whitespace
-      - type: parse_dates
-      - type: normalize_money_to_minor_units
-      - type: custom_plugin
-        plugin: my_plugins.finance.normalize_broker_txn
-    load:
-      mode: upsert
-      record_hash: true
-    semantic:
-      enabled: true
-      narrative_template: investment_transaction_v1
-
-derived_tables:
-  - name: portfolio_analysis
-    kind: derived
-    engine: sql
-    depends_on:
-      - investment_transactions
-      - market_prices
-      - benchmark_master
-      - benchmark_prices
-    materialization: replace_table
-    sql_template: portfolio_analysis_v1.sql
-    semantic:
-      enabled: true
-      narrative_template: portfolio_analysis_summary_v1
+Cross-cutting:
+Config, Logging, Registry, Lineage, Run Tracking, Schema Compilation
 ```
 
 ---
 
-# 15. Layered Package Structure
-
-You asked for this exact layered architecture:
-
-- `config`
-- `domain`
-- `contracts`
-- `infrastructure`
-- `etl`
-- `tables`
-- `semantic`
-- `ui`
-
-Below is the recommended package structure aligned to that.
+## 3.2 Required top-level layers
 
 ```text
-src/semantic_finance_etl/
-│
+config
+domain
+contracts
+infrastructure
+etl
+tables
+semantic
+ui
+```
+
+---
+
+## 3.3 Layer responsibilities
+
+| Layer | Responsibility |
+|---|---|
+| `config` | load/validate project configuration, source configs, table configs, transformation configs |
+| `domain` | core Pydantic models, enums, metadata definitions, runtime table schemas |
+| `contracts` | abstract interfaces / protocols for readers, discoverers, selectors, loaders, semantic builders |
+| `infrastructure` | SQLite access, local file scanning, Excel parsing, SQL connectors, hashing, plugin loading |
+| `etl` | orchestration, run tracking, idempotency, validation, DLQ, lineage, schema sync |
+| `tables` | generic configured pipeline + optional specialized custom pipelines |
+| `semantic` | narrative generation, chunking, FTS5, sqlite-vec, embeddings, hybrid search |
+| `ui` | CustomTkinter configuration editor and ETL runner |
+
+---
+
+## 3.4 Important refinement to your original idea
+
+You earlier said:
+
+> Each table should have its own class-based pipeline.
+
+That is good for strongly modeled systems, but your later requirement says:
+
+> tables must be dynamic and the app should only be an ETL engine.
+
+To satisfy both, I recommend:
+
+### Default
+Use a **generic `ConfiguredTablePipeline`** that runs from config.
+
+### Optional override
+Allow a table to specify a **custom Python plugin class** when needed.
+
+So the system supports both:
+
+- **fully dynamic no-code tables**
+- **specialized code-backed tables for edge cases**
+
+This is the correct compromise.
+
+---
+
+# 4. Runtime Processing Model
+
+## 4.1 Core execution graph
+
+The runtime should process a configuration into a DAG like this:
+
+```text
+ProjectConfig
+  ├── SourceDefinitions
+  ├── TableDefinitions
+  ├── DerivedTableDefinitions
+  ├── SemanticDefinitions
+  └── RuntimeSettings
+
+Sources
+  ↓
+Raw extracted datasets
+  ↓
+Base / canonical tables
+  ↓
+Derived / analytical tables
+  ↓
+Semantic documents
+  ↓
+FTS5 + sqlite-vec indexes
+```
+
+---
+
+## 4.2 Table types
+
+Every table config should declare a `table_kind`:
+
+- `base`
+- `canonical`
+- `derived`
+- `semantic_projection`
+- `system`
+
+### Meaning
+- **base**: lightly standardized ingestion table
+- **canonical**: cleaned finance-ready table
+- **derived**: computed from other tables
+- **semantic_projection**: narrative/index materialization
+- **system**: ETL metadata tables
+
+---
+
+# 5. Recommended Package Structure
+
+```text
+semantic_finance_etl/
 ├── config/
 │   ├── models/
-│   │   ├── app_config.py
 │   │   ├── project_config.py
 │   │   ├── source_config.py
 │   │   ├── table_config.py
-│   │   ├── column_config.py
-│   │   ├── derived_table_config.py
+│   │   ├── transform_config.py
 │   │   ├── semantic_config.py
-│   │   └── plugin_config.py
-│   ├── loader.py
-│   ├── merger.py
-│   ├── resolver.py
-│   └── compiler.py
+│   │   └── runtime_config.py
+│   ├── loaders/
+│   │   ├── yaml_loader.py
+│   │   ├── json_loader.py
+│   │   └── merged_config_loader.py
+│   └── services/
+│       ├── config_resolver.py
+│       ├── config_merger.py
+│       └── config_snapshot_service.py
 │
 ├── domain/
-│   ├── enums.py
-│   ├── metadata.py
-│   ├── runtime_schema.py
-│   ├── finance_types.py
-│   ├── semantic_metadata.py
-│   ├── system_models/
-│   │   ├── etl_run.py
-│   │   ├── source_asset.py
-│   │   ├── dead_letter.py
-│   │   ├── lineage_record.py
-│   │   ├── load_result.py
-│   │   ├── schema_catalog.py
-│   │   ├── semantic_document.py
-│   │   └── embedding_record.py
-│   └── value_objects/
-│       ├── money.py
-│       ├── fingerprint.py
-│       ├── canonical_key.py
-│       └── record_hash.py
+│   ├── enums/
+│   ├── models/
+│   │   ├── base_model.py
+│   │   ├── system_tables.py
+│   │   ├── runtime_table_definition.py
+│   │   ├── lineage_models.py
+│   │   └── semantic_models.py
+│   ├── schema/
+│   │   ├── dynamic_model_factory.py
+│   │   ├── sqlite_type_mapper.py
+│   │   ├── schema_compiler.py
+│   │   └── schema_diff.py
+│   └── metadata/
+│       ├── table_metadata.py
+│       └── field_metadata.py
 │
 ├── contracts/
 │   ├── source_discoverer.py
+│   ├── source_selector.py
+│   ├── source_grouper.py
 │   ├── source_reader.py
 │   ├── transform_step.py
 │   ├── validator.py
-│   ├── table_loader.py
-│   ├── schema_compiler.py
-│   ├── runtime_model_factory.py
-│   ├── key_generator.py
-│   ├── hasher.py
-│   ├── run_tracker.py
-│   ├── dlq_writer.py
-│   ├── lineage_recorder.py
-│   ├── derived_table_builder.py
-│   ├── narrative_builder.py
+│   ├── loader.py
+│   ├── repository.py
+│   ├── semantic_builder.py
 │   ├── embedding_provider.py
-│   ├── vector_index.py
 │   └── plugin_registry.py
 │
 ├── infrastructure/
-│   ├── db/
-│   │   ├── sqlite_connection.py
-│   │   ├── sqlite_schema_compiler.py
-│   │   ├── sqlite_migrator.py
-│   │   ├── sqlite_loader.py
-│   │   ├── sqlite_run_tracker.py
-│   │   ├── sqlite_dlq_writer.py
-│   │   ├── sqlite_lineage_recorder.py
-│   │   ├── sqlite_fts.py
-│   │   └── sqlite_vec.py
 │   ├── discovery/
-│   │   ├── all_files_discoverer.py
-│   │   ├── latest_modified_discoverer.py
-│   │   ├── latest_created_discoverer.py
-│   │   ├── recursive_folder_discoverer.py
-│   │   ├── unprocessed_files_discoverer.py
-│   │   └── sql_query_discoverer.py
+│   │   ├── filesystem_discoverer.py
+│   │   └── sql_backup_discoverer.py
+│   ├── selection/
+│   │   ├── all_files_selector.py
+│   │   ├── latest_modified_selector.py
+│   │   ├── latest_created_selector.py
+│   │   └── pattern_selector.py
+│   ├── grouping/
+│   │   ├── single_group_grouper.py
+│   │   ├── folder_group_grouper.py
+│   │   └── pattern_group_grouper.py
 │   ├── readers/
 │   │   ├── csv_reader.py
 │   │   ├── excel_reader.py
 │   │   ├── parquet_reader.py
 │   │   ├── json_reader.py
 │   │   ├── sqlite_reader.py
-│   │   ├── sql_reader.py
-│   │   └── auto_reader.py
-│   ├── transforms/
-│   │   ├── polars_steps/
-│   │   │   ├── rename_columns.py
-│   │   │   ├── cast_types.py
-│   │   │   ├── parse_dates.py
-│   │   │   ├── normalize_money.py
-│   │   │   ├── trim_strings.py
-│   │   │   ├── deduplicate.py
-│   │   │   └── derive_columns.py
-│   │   └── plugin_loader.py
+│   │   ├── sql_query_reader.py
+│   │   └── duckdb_reader.py
+│   ├── database/
+│   │   ├── sqlite_connection.py
+│   │   ├── sqlite_repository.py
+│   │   ├── sqlite_upsert.py
+│   │   ├── sqlite_schema_manager.py
+│   │   └── sqlite_vec_manager.py
+│   ├── parsing/
+│   │   ├── messy_excel_parser.py
+│   │   └── spatial_excel_locator.py
 │   ├── hashing/
-│   │   ├── file_fingerprint_service.py
-│   │   ├── record_hasher.py
-│   │   └── canonical_key_generator.py
-│   ├── models/
-│   │   └── runtime_model_factory.py
-│   ├── derived/
-│   │   ├── sql_derived_builder.py
-│   │   ├── polars_derived_builder.py
-│   │   └── dag_executor.py
-│   └── semantic/
-│       ├── template_narrative_builder.py
-│       ├── sentence_transformer_provider.py
-│       ├── semantic_index_service.py
-│       └── hybrid_search_service.py
+│   │   ├── file_hasher.py
+│   │   ├── row_hasher.py
+│   │   └── batch_hasher.py
+│   ├── plugins/
+│   │   ├── local_plugin_registry.py
+│   │   └── plugin_loader.py
+│   └── logging/
+│       └── logging_config.py
 │
 ├── etl/
 │   ├── orchestration/
-│   │   ├── etl_engine.py
-│   │   ├── run_context.py
-│   │   ├── execution_plan.py
-│   │   └── execution_planner.py
-│   ├── services/
-│   │   ├── source_discovery_service.py
-│   │   ├── schema_sync_service.py
-│   │   ├── validation_service.py
-│   │   ├── load_service.py
-│   │   ├── derived_refresh_service.py
-│   │   └── semantic_refresh_service.py
+│   │   ├── run_etl_service.py
+│   │   ├── pipeline_executor.py
+│   │   ├── dag_builder.py
+│   │   └── dependency_resolver.py
+│   ├── runtime/
+│   │   ├── pipeline_context.py
+│   │   ├── execution_context.py
+│   │   └── run_summary.py
 │   ├── validation/
-│   │   ├── row_validator.py
-│   │   └── validation_result.py
+│   │   ├── pydantic_validator.py
+│   │   └── validation_error_mapper.py
+│   ├── loading/
+│   │   ├── load_service.py
+│   │   └── upsert_planner.py
+│   ├── lineage/
+│   │   ├── lineage_recorder.py
+│   │   └── source_to_row_mapper.py
 │   ├── dlq/
-│   │   └── dead_letter_router.py
-│   └── lineage/
-│       └── lineage_service.py
+│   │   ├── dlq_service.py
+│   │   └── dlq_record_builder.py
+│   └── tracking/
+│       ├── run_tracker.py
+│       ├── source_file_tracker.py
+│       └── idempotency_service.py
 │
 ├── tables/
-│   ├── pipeline/
-│   │   ├── configured_table_pipeline.py
-│   │   ├── configured_derived_pipeline.py
-│   │   ├── pipeline_result.py
-│   │   └── processing_strategy.py
-│   ├── registry/
-│   │   ├── table_registry.py
-│   │   └── dependency_graph.py
-│   └── templates/
-│       ├── finance/
-│       │   ├── transactions_template.py
-│       │   ├── investment_transactions_template.py
-│       │   └── market_prices_template.py
-│       └── analytics/
-│           └── portfolio_analysis_template.py
+│   ├── configured_table_pipeline.py
+│   ├── derived_table_pipeline.py
+│   ├── transform_engine.py
+│   ├── step_factory.py
+│   └── custom/
+│       └── __init__.py
 │
 ├── semantic/
-│   ├── documents/
-│   │   ├── document_builder.py
-│   │   └── chunker.py
+│   ├── narrative/
+│   │   ├── template_renderer.py
+│   │   ├── sentence_builder.py
+│   │   └── semantic_projection_service.py
+│   ├── embeddings/
+│   │   ├── sentence_transformer_provider.py
+│   │   ├── embedding_cache.py
+│   │   └── embedding_service.py
 │   ├── indexing/
-│   │   ├── fts_index_manager.py
-│   │   └── vec_index_manager.py
-│   ├── query/
-│   │   ├── search_request.py
-│   │   ├── hybrid_search.py
-│   │   └── reranker.py
-│   └── templates/
-│       └── finance_narratives.py
+│   │   ├── fts5_indexer.py
+│   │   ├── vector_indexer.py
+│   │   └── hybrid_search_service.py
+│   └── chunking/
+│       └── chunk_strategy.py
 │
 ├── ui/
 │   ├── app.py
 │   ├── controllers/
-│   │   ├── config_controller.py
-│   │   ├── run_controller.py
-│   │   └── schema_controller.py
+│   ├── viewmodels/
 │   ├── views/
-│   │   ├── workspace_view.py
-│   │   ├── source_editor_view.py
-│   │   ├── table_editor_view.py
-│   │   ├── run_monitor_view.py
-│   │   └── semantic_search_view.py
-│   └── presenters/
-│       └── run_presenter.py
+│   └── services/
 │
-└── bootstrap/
-    ├── container.py
-    └── app_factory.py
+└── tests/
+    ├── unit/
+    ├── integration/
+    ├── contract/
+    └── fixtures/
 ```
 
 ---
 
-# 16. Core Abstractions
+# 6. Core Abstractions
 
-These are the key interfaces the whole system will stand on.
+## 6.1 Plugin architecture
 
-## 16.1 `SourceDiscoverer`
+The plugin model should be explicit and stable.
 
-Purpose:
-- discover eligible assets for a source config
-
-Input:
-- `SourceConfig`
-- `RunContext`
-
-Output:
-- list of `DiscoveredAsset`
-
-## 16.2 `SourceReader`
-
-Purpose:
-- read a discovered asset into a tabular representation
-
-Output:
-- `pl.LazyFrame` preferred
-- or staged DataFrame convertible to Polars
-
-## 16.3 `TransformStep`
-
-Purpose:
-- apply one transformation step
-
-Examples:
-- rename columns
-- cast types
-- parse dates
-- normalize amount fields
-- compute derived columns
-- custom plugin transformation
-
-## 16.4 `RuntimeModelFactory`
-
-Purpose:
-- turn `TableConfig` into runtime Pydantic model
-
-This is one of the most important abstractions in the whole system.
-
-## 16.5 `SchemaCompiler`
-
-Purpose:
-- turn runtime Pydantic model into SQLite DDL and schema metadata
-
-## 16.6 `KeyGenerator`
-
-Purpose:
-- create deterministic `canonical_id`
-
-## 16.7 `Hasher`
-
-Purpose:
-- create `record_hash`
-
-## 16.8 `Validator`
-
-Purpose:
-- validate transformed rows against runtime Pydantic model
-
-## 16.9 `TableLoader`
-
-Purpose:
-- perform UPSERT / replace / append load into SQLite
-
-## 16.10 `DerivedTableBuilder`
-
-Purpose:
-- build config-defined derived tables from dependency tables
-
-Engines:
-- SQL
-- Polars
-- Python plugin
-
-## 16.11 `NarrativeBuilder`
-
-Purpose:
-- convert structured data into semantic text documents
-
-## 16.12 `EmbeddingProvider`
-
-Purpose:
-- generate local embeddings
-
-## 16.13 `VectorIndex`
-
-Purpose:
-- store/query vectors via sqlite-vec
-
-## 16.14 `RunTracker`
-
-Purpose:
-- track ETL runs, statuses, counts, timing
-
-## 16.15 `DLQWriter`
-
-Purpose:
-- persist invalid rows and errors
-
-## 16.16 `LineageRecorder`
-
-Purpose:
-- persist source-to-table-to-row lineage
+## Plugin categories
+1. `SourceDiscoverer`
+2. `SourceSelector`
+3. `SourceGrouper`
+4. `SourceReader`
+5. `TransformStep`
+6. `Validator`
+7. `Loader`
+8. `SemanticBuilder`
+9. `EmbeddingProvider`
+10. `CustomPipeline`
 
 ---
 
-# 17. ETL Execution Lifecycle
+## 6.2 Key interfaces and purpose
 
-A full run should look like this.
-
-## 17.1 Bootstrapping
-1. load workspace config
-2. validate config
-3. compile runtime schemas
-4. connect SQLite
-5. synchronize schema
-6. start ETL run
-
-## 17.2 Base table ingestion
-For each source-bound base table:
-
-1. execute discoverer
-2. fingerprint assets
-3. skip unchanged if idempotency says so
-4. read source data
-5. apply processing strategy
-6. transform using Polars/plugin steps
-7. generate canonical keys
-8. generate record hashes
-9. validate against runtime Pydantic model
-10. route invalid rows to DLQ
-11. load valid rows into SQLite
-12. write lineage
-13. record pipeline metrics
-
-## 17.3 Derived table processing
-1. build dependency DAG
-2. topologically sort
-3. execute derived tables in order
-4. materialize outputs
-5. register lineage and version info
-
-## 17.4 Semantic refresh
-1. select semantic-enabled tables
-2. create narratives
-3. update FTS5
-4. generate embeddings
-5. update sqlite-vec
-
-## 17.5 Completion
-1. finalize ETL run
-2. persist summary
-3. expose results to UI / CLI
+| Interface | Purpose |
+|---|---|
+| `SourceDiscoverer` | find eligible source assets from local file system / DB location |
+| `SourceSelector` | choose latest/all/matching/nth set |
+| `SourceGrouper` | combine selected sources into logical groups |
+| `SourceReader` | read selected source into DataFrame/LazyFrame |
+| `TransformStep` | apply one transformation operation |
+| `Validator` | validate rows using runtime-generated Pydantic model |
+| `Loader` | UPSERT into SQLite |
+| `SemanticBuilder` | generate configurable narrative text from row(s) |
+| `EmbeddingProvider` | create local embeddings |
+| `CustomPipeline` | escape hatch for bespoke logic |
 
 ---
 
-# 18. SQL Generation Strategy
+## 6.3 Recommended pipeline context objects
 
-You asked for the engine mindset to be explained properly.
+These runtime objects will reduce coupling:
 
-Even in a Polars-first ETL, SQL generation is still central because SQLite is the durable serving layer.
+- `ProjectContext`
+- `ExecutionContext`
+- `PipelineContext`
+- `SourceGroup`
+- `TableExecutionPlan`
+- `LineageContext`
 
-At minimum, the engine should generate SQL in three places.
+This avoids passing random dictionaries everywhere.
 
-## 18.1 DDL generation
+---
 
-From runtime Pydantic models, generate:
+# 7. Configuration-Driven Architecture
 
-- `CREATE TABLE`
-- `CREATE INDEX`
-- `CREATE VIRTUAL TABLE ... USING fts5`
-- vector index support tables
+## 7.1 Recommended config layout
 
-Example responsibility:
-- convert `str -> TEXT`
-- `int -> INTEGER`
-- `date -> TEXT`
-- nullable and required behavior
-- unique constraints from config
+Use modular YAML files:
 
-## 18.2 UPSERT generation
+```text
+configs/
+├── project.yaml
+├── runtime.yaml
+├── sources/
+│   ├── bank_exports.yaml
+│   ├── broker_backups.yaml
+│   └── market_data.yaml
+├── tables/
+│   ├── transactions.yaml
+│   ├── investments.yaml
+│   └── portfolio_analysis.yaml
+└── semantics/
+    ├── transactions_semantic.yaml
+    └── portfolio_analysis_semantic.yaml
+```
 
-For idempotent loads, the engine should generate SQL like:
+This is better than one massive config file.
 
-- `INSERT ... ON CONFLICT (...) DO UPDATE`
+---
 
-This is the main load operation.
+## 7.2 Top-level config concepts
 
-That gives you:
-- insert new rows
-- update changed rows
-- skip unchanged records based on `record_hash`
+Every project config should include:
 
-## 18.3 Derived analytical SQL generation
+- project metadata
+- SQLite db path
+- plugin registry paths
+- source definitions
+- table definitions
+- semantic settings
+- execution settings
+- idempotency settings
+- indexing settings
 
-For derived tables, the engine should generate SQL using at least these operations:
+---
 
-### Operation 1: `JOIN`
-Used to combine base tables.
+## 7.3 Example: folder of SQLite backups, choose latest modified, run query
+
+```yaml
+sources:
+  - source_id: broker_sqlite_backups
+    discoverer: filesystem
+    selector: latest_modified
+    grouper: single_group
+    path: ./data/raw/broker_backups
+    recursive: true
+    include_patterns: ["*.sqlite", "*.db"]
+    reader:
+      type: sqlite_query
+      sql: |
+        SELECT
+          trade_date,
+          symbol,
+          transaction_type,
+          quantity,
+          price,
+          amount,
+          account_name
+        FROM trades
+    output_mode: single_dataset
+    target_tables: ["investment_transactions"]
+```
+
+This exactly supports the use case you described.
+
+---
+
+## 7.4 Example: same folder, load all SQLite DBs and union results
+
+```yaml
+sources:
+  - source_id: all_broker_backups
+    discoverer: filesystem
+    selector: all_files
+    grouper: single_group
+    path: ./data/raw/broker_backups
+    recursive: true
+    include_patterns: ["*.sqlite", "*.db"]
+    reader:
+      type: sqlite_query
+      sql: "SELECT * FROM trades"
+    combine_strategy: transform_then_append
+    target_tables: ["investment_transactions"]
+```
+
+---
+
+## 7.5 Example: dynamic table definition
+
+```yaml
+tables:
+  - table_name: investment_transactions
+    table_kind: canonical
+    primary_key_strategy:
+      type: deterministic_hash
+      fields:
+        - account_name
+        - symbol
+        - trade_date
+        - transaction_type
+        - quantity
+        - amount
+    columns:
+      - name: canonical_id
+        type: str
+        nullable: false
+      - name: trade_date
+        type: date
+      - name: symbol
+        type: str
+      - name: transaction_type
+        type: str
+      - name: quantity
+        type: decimal
+      - name: price
+        type: decimal
+      - name: amount
+        type: decimal
+      - name: account_name
+        type: str
+    load:
+      mode: upsert
+      record_hash: true
+```
+
+---
+
+# 8. Dynamic Tables and Runtime Pydantic Models
+
+## 8.1 How to satisfy “Pydantic is the schema source of truth” with dynamic tables
+
+Use this pattern:
+
+```text
+Config → RuntimeTableDefinition → Runtime Pydantic Model → SQLite DDL
+```
+
+So Pydantic is still the truth, but it is **generated from config**.
+
+---
+
+## 8.2 Recommended model strategy
+
+### Built-in static Pydantic models
+Use normal code-defined models for:
+
+- ETL system metadata tables
+- lineage tables
+- DLQ tables
+- semantic index metadata tables
+
+### Runtime-generated Pydantic models
+Use `pydantic.create_model()` for:
+
+- user-defined finance tables
+- custom analytical tables
+- per-project schemas
+
+---
+
+## 8.3 Schema evolution rules
+
+### Safe automatic changes
+- add nullable column
+- add non-null column with default
+- widen text-like fields
+- add semantic metadata field
+
+### Controlled/manual changes
+- change data type incompatibly
+- remove column
+- rename column
+- split table
+- change primary key logic
+
+For controlled changes, create a schema diff and require confirmation or migration plan.
+
+---
+
+# 9. Source Discovery, Selection, Grouping, and Reading
+
+This is one of the most important parts of your design.
+
+## 9.1 Why these must be separate
+Because these are different decisions:
+
+- **what exists?** → discovery
+- **which ones to use?** → selection
+- **how to bundle them?** → grouping
+- **how to read them?** → reader
+- **when to combine?** → combine strategy
+
+If you combine these into one class, extensibility dies.
+
+---
+
+## 9.2 Supported selector plugins
+
+At minimum:
+
+- `all_files`
+- `latest_modified`
+- `latest_created`
+- `oldest_modified`
+- `top_n_latest`
+- `date_range`
+- `filename_regex`
+- `manual_list`
+- `unprocessed_only`
+- `changed_since_last_run`
+
+---
+
+## 9.3 Supported grouping plugins
+
+- `single_group`
+- `group_by_parent_folder`
+- `group_by_filename_pattern`
+- `group_by_date_partition`
+- `group_by_source_type`
+
+---
+
+## 9.4 Supported reader plugins
+
+- `csv_reader`
+- `excel_reader`
+- `parquet_reader`
+- `json_reader`
+- `sqlite_table_reader`
+- `sqlite_query_reader`
+- `sql_query_reader`
+- `duckdb_reader`
+
+For “other SQL sources,” the abstraction should support either:
+
+- table read
+- custom SQL query
+- incremental SQL query with parameter injection
+
+---
+
+## 9.5 Combine strategies
+
+| Strategy | Meaning | Best use case |
+|---|---|---|
+| `single_file` | process one selected file only | latest report |
+| `raw_then_transform` | union raw data, then transform once | homogeneous files |
+| `transform_then_append` | clean each file first, then union canonical rows | messy files |
+| `query_each_then_union` | execute same SQL on many DB files, then union | folder of SQLite backups |
+| `partitioned_batches` | process by time/account/other partition | large datasets |
+
+### My recommendation
+- default to `transform_then_append` for messy finance inputs
+- use `raw_then_transform` only when schemas are truly stable
+- use `query_each_then_union` for many SQLite backup files
+
+---
+
+# 10. Transformation Engine
+
+## 10.1 Design principle
+Transformations should be **declarative where possible**, with a **plugin escape hatch**.
+
+So the engine should support:
+
+1. **config-defined standard transformations**
+2. **custom Python transform plugins** for complex edge cases
+
+---
+
+## 10.2 Transformation step library
+
+Support these operations as first-class config steps:
+
+- `select`
+- `rename`
+- `cast`
+- `drop`
+- `filter`
+- `sort`
+- `deduplicate`
+- `fill_null`
+- `replace`
+- `derive_column`
+- `explode`
+- `pivot`
+- `unpivot`
+- `join`
+- `group_by_agg`
+- `window`
+- `rolling`
+- `cumulative`
+- `union`
+- `lookup`
+- `asof_join`
+- `rank`
+- `normalize_text`
+- `parse_date`
+- `parse_decimal`
+- `map_values`
+- `custom_plugin`
+
+This is enough power for 90% of finance workflows.
+
+---
+
+## 10.3 Why Polars LazyFrame is the right backbone
+Because you want:
+
+- speed
+- composability
+- lazy optimization
+- batch-friendly transformations
+- SQL-like analytical operations
+
+Use pandas only for messy Excel edge cases or when spatial parsing is required.
+
+---
+
+## 10.4 How analytical table generation should work
+
+A derived table config should declare:
+
+- dependencies
+- transformation steps
+- load mode
+- refresh behavior
+- semantic behavior
 
 Example:
-- join `investment_transactions` with `market_prices`
-- join portfolio facts with benchmark metadata
 
-### Operation 2: `GROUP BY`
-Used to aggregate performance metrics.
-
-Example:
-- group cash flows by account / instrument / date
-- aggregate invested amount, units, gains
-
-### Operation 3: window functions
-Used for:
-- running balances
-- ranking
-- period return calculations
-- latest price selection
-
-### Operation 4: UPSERT / replace materialization
-Used to publish the analytical output table.
-
-## Example derived-table SQL flow
-
-For `portfolio_analysis`, conceptually:
-
-1. `JOIN` investment transactions with market prices
-2. `JOIN` benchmark mappings
-3. `GROUP BY` portfolio and valuation date
-4. compute totals and returns
-5. write to `portfolio_analysis`
-
-That means the engine is not only generating DDL; it is also generating **load SQL** and **analytical SQL**.
-
----
-
-# 19. Transformation Architecture
-
-## 19.1 Prefer declarative transforms first
-
-Built-in transform specs should cover most common needs:
-
-- rename
-- select
-- reorder
-- cast
-- fill nulls
-- trim
-- regex replace
-- parse date
-- parse decimal
-- normalize currency
-- split columns
-- concat columns
-- derive conditional columns
-- dedupe
-- sort
-- filter
-
-## 19.2 Use plugin transforms for hard cases
-
-For messy broker exports and weird Excel layouts, config alone will not always be enough.
-
-Allow:
-
-- module path + callable name in config
-- plugin receives `LazyFrame`, config, run context
-- plugin returns `LazyFrame`
-
-## 19.3 Excel parsing reality
-
-You already called this correctly.
-
-For messy Excel:
-- use `pandas` or `fastexcel` when spatial parsing is required
-- convert to Polars as early as possible
-- keep Excel-specific ugliness inside reader/parser layer only
+```yaml
+tables:
+  - table_name: portfolio_analysis
+    table_kind: derived
+    depends_on:
+      - investment_transactions
+      - market_prices
+      - benchmark_master
+      - benchmark_prices
+    build:
+      engine: polars
+      steps:
+        - type: join
+          left: investment_transactions
+          right: market_prices
+          on: [symbol]
+          how: left
+        - type: derive_column
+          name: market_value
+          expression: "quantity_held * close_price"
+        - type: group_by_agg
+          by: [portfolio_id, valuation_date]
+          metrics:
+            - name: total_market_value
+              expression: "sum(market_value)"
+        - type: window
+          partition_by: [portfolio_id]
+          order_by: [valuation_date]
+          expressions:
+            - name: running_cost
+              expression: "sum(cost_basis)"
+        - type: custom_plugin
+          plugin: semantic_finance_etl.tables.custom.xirr_step.XirrStep
+```
 
 ---
 
-# 20. UI Architecture
+## 10.5 SQL generation explanation using two important SQL operations
 
-The UI should be a thin orchestration/configuration layer.
+Because you asked for AI-agent-ready clarity, here is how config-driven transforms should conceptually compile.
 
-It must not contain business logic.
+### Example 1: `join`
+Config:
 
-## UI responsibilities
-- create/edit workspace config
-- manage sources
-- manage table definitions
-- preview mappings
+```yaml
+- type: join
+  left: investment_transactions
+  right: market_prices
+  on: [symbol, valuation_date]
+  how: left
+```
+
+Conceptual SQL equivalent:
+
+```sql
+SELECT
+    t.*,
+    p.close_price
+FROM investment_transactions t
+LEFT JOIN market_prices p
+    ON t.symbol = p.symbol
+   AND t.valuation_date = p.valuation_date;
+```
+
+### Example 2: `group_by_agg`
+Config:
+
+```yaml
+- type: group_by_agg
+  by: [portfolio_id]
+  metrics:
+    - name: total_cost
+      expression: "sum(cost_basis)"
+    - name: total_value
+      expression: "sum(market_value)"
+```
+
+Conceptual SQL equivalent:
+
+```sql
+SELECT
+    portfolio_id,
+    SUM(cost_basis) AS total_cost,
+    SUM(market_value) AS total_value
+FROM portfolio_positions
+GROUP BY portfolio_id;
+```
+
+### Example 3: `window`
+Config:
+
+```yaml
+- type: window
+  partition_by: [portfolio_id]
+  order_by: [valuation_date]
+  expressions:
+    - name: running_value
+      expression: "sum(market_value)"
+```
+
+Conceptual SQL equivalent:
+
+```sql
+SELECT
+    portfolio_id,
+    valuation_date,
+    market_value,
+    SUM(market_value) OVER (
+        PARTITION BY portfolio_id
+        ORDER BY valuation_date
+        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+    ) AS running_value
+FROM portfolio_daily_values;
+```
+
+So your transformation DSL should feel like a structured abstraction over:
+
+- `JOIN`
+- `GROUP BY`
+- `WINDOW FUNCTIONS`
+- expression columns
+- unions and filters
+
+This will make it powerful enough for serious analytical finance tables.
+
+---
+
+# 11. Analytical Tables as First-Class DAG Nodes
+
+## 11.1 Table dependency graph
+You explicitly want tables built from other tables. Therefore every table config may optionally declare:
+
+- `depends_on`
+- `refresh_policy`
+- `materialization`
+- `rebuild_on_dependency_change`
+
+---
+
+## 11.2 Materialization modes
+Support:
+
+- `table`
+- `view`
+- `incremental_table`
+- `ephemeral` (in-memory for intermediate steps)
+
+### Recommendation
+- use `table` for Power BI consumption
+- use `view` for lightweight reusable projections
+- use `incremental_table` carefully after base engine stabilizes
+
+---
+
+## 11.3 Examples of derived finance tables
+- `portfolio_analysis`
+- `daily_holdings`
+- `realized_gains`
+- `unrealized_gains`
+- `cashflow_series`
+- `benchmark_comparison`
+- `goal_progress`
+- `asset_allocation_snapshot`
+- `tax_lot_summary`
+
+---
+
+# 12. Semantic Layer
+
+## 12.1 Semantic pipeline
+For each table, optionally generate a semantic projection:
+
+```text
+table rows
+  → semantic sentence / narrative template
+  → chunking
+  → FTS5 document
+  → embedding vector
+  → hybrid search index
+```
+
+---
+
+## 12.2 Configurable semantic templates
+Each table should support config like:
+
+```yaml
+semantics:
+  - table_name: investment_transactions
+    enabled: true
+    title_template: "Investment transaction for {{ account_name }}"
+    body_template: >
+      On {{ trade_date }}, {{ account_name }} {{ transaction_type }}
+      {{ quantity }} units of {{ symbol }} for {{ amount }}.
+    tags:
+      - "{{ symbol }}"
+      - "{{ transaction_type }}"
+      - "{{ account_name }}"
+```
+
+This lets you edit wording from the UI.
+
+---
+
+## 12.3 Semantic configuration options
+Per table:
+
+- enabled/disabled
+- template version
+- title template
+- body template
+- tags template
+- chunk strategy
+- include/exclude columns
+- row-level vs grouped semantic docs
+- re-embed on template change
+- search ranking weights
+
+---
+
+## 12.4 Search design
+Use hybrid search:
+
+1. **FTS5** for keyword and exact-ish lookup
+2. **sqlite-vec** for semantic similarity
+3. merge/rerank both locally
+
+This gives:
+
+- precise search
+- semantic retrieval
+- good future support for local AI agents
+
+---
+
+# 13. SQLite Database Design
+
+## 13.1 Database zones
+
+Use logical zones in one SQLite DB:
+
+### A. System zone
+- `etl_runs`
+- `source_files`
+- `source_groups`
+- `lineage_events`
+- `dead_letter_queue`
+- `schema_registry`
+- `config_snapshots`
+
+### B. Data zone
+- dynamic finance tables
+- canonical tables
+- derived analytical tables
+
+### C. Semantic zone
+- `semantic_documents`
+- `semantic_chunks`
+- `semantic_embeddings`
+- FTS5 virtual tables
+- sqlite-vec tables
+
+---
+
+## 13.2 Pydantic-driven schema creation
+Never treat `schema.sql` as the source of truth.
+
+Instead:
+
+```text
+Config → Pydantic model → SQLite DDL generator → DB sync
+```
+
+Generated SQL is fine. Handwritten static schema is not the master.
+
+---
+
+# 14. Idempotency, Run Tracking, DLQ, and Lineage
+
+## 14.1 Idempotency layers
+You already want this, and it remains essential.
+
+### File-level
+Track:
+
+- file path
+- file size
+- modified timestamp
+- created timestamp if available
+- content hash
+
+### Group-level
+Track source group hash so batches can be skipped or re-run intelligently.
+
+### Row-level
+Track:
+
+- `canonical_id`
+- `record_hash`
+
+### Load-level
+Use SQLite UPSERT behavior:
+
+- insert if new
+- update if changed
+- skip if identical
+
+---
+
+## 14.2 Dead letter queue
+Every failed row should persist with:
+
+- run id
+- source id
+- file path
+- row number
+- raw payload
+- validation errors
+- transformation step
+- timestamp
+
+This is non-negotiable for a serious ETL engine.
+
+---
+
+## 14.3 Lineage
+At minimum you should be able to answer:
+
+- which file produced this row?
+- which run loaded it?
+- which config version was used?
+- which transformation steps touched it?
+- which semantic document came from it?
+
+This is critical for trust and debugging.
+
+---
+
+# 15. UI Architecture
+
+## 15.1 Principle
+The UI must **never contain business logic**.
+
+It should only:
+
+- edit config
+- validate config
+- preview discovered files
+- preview transformations
 - run ETL
-- monitor runs
-- inspect DLQ
-- trigger semantic refresh
-- browse schema metadata
+- show run status
+- display DLQ issues
+- trigger semantic rebuild
 
-## UI should call
-- application services
-- ETL engine services
-- config services
-
-## UI should not do
-- transformation logic
-- SQL generation
-- Pydantic model building
-- direct DB mutation outside application services
+Business logic remains in application services.
 
 ---
 
-# 21. Recommended Build Order
-
-You asked to go step by step from architecture, then package structure, then core abstractions.
-
-This is the right sequence.
-
-## Phase 1 — Foundation architecture
-Build first:
-
-- package structure
-- config models
-- system domain models
-- runtime model factory concept
-- schema compiler concept
-- SQLite connection/init
-- ETL run tracker
-- source asset tracker
-- DLQ table
-
-## Phase 2 — Config compiler
-Build:
-
-- workspace config loading
-- config validation
-- config merge/resolution
-- table config compilation
-- runtime Pydantic model generation
-
-## Phase 3 — Discovery and reading
-Build:
-
-- discoverer contracts
-- file discoverers
-- source fingerprinting
-- CSV/JSON/parquet/SQLite readers
-- Excel reader abstraction
-
-## Phase 4 — Generic configured pipeline
-Build:
-
-- `ConfiguredTablePipeline`
-- transform step chain
-- validator
-- loader
-- idempotent UPSERT
-
-## Phase 5 — Derived table engine
-Build:
-
-- dependency graph
-- SQL derived builder
-- Polars derived builder
-- materialization modes
-
-## Phase 6 — Semantic layer
-Build:
-
-- semantic document generation
-- FTS5
-- local embeddings
-- sqlite-vec
-- hybrid search
-
-## Phase 7 — UI
-Build:
-
-- workspace editor
-- source editor
-- table editor
-- run monitor
-- DLQ viewer
+## 15.2 Recommended UI modules
+- Project selector
+- Source config editor
+- Table schema editor
+- Transformation pipeline editor
+- Semantic template editor
+- Execution dashboard
+- Run history
+- DLQ browser
+- Search tester
 
 ---
 
-# 22. First Milestone Recommendation
+## 15.3 Key UI workflows
+1. create/update config
+2. test source discovery
+3. preview extraction
+4. preview transformation
+5. save config snapshot
+6. run ETL batch
+7. inspect results/errors
+8. rebuild semantic indexes
 
-Given your current goal, I would define **Milestone 1** like this:
+---
 
-## Milestone 1
-**Config-driven schema foundation**
+# 16. Phase-by-Phase Implementation Plan
 
-Deliverables:
+This is the handoff section for future AI agents.
 
-- package structure
-- config models
-- static system Pydantic models
-- runtime business model factory
+## Phase 1 — Project skeleton and config foundation
+### Goal
+Establish the package structure and config models.
+
+### Deliverables
+- package skeleton
+- Pydantic config models
+- config loader
+- config merger
+- project bootstrap
+
+### Acceptance criteria
+- load `project.yaml`
+- validate source/table definitions
+- print runtime plan successfully
+
+---
+
+## Phase 2 — Plugin registry and discovery framework
+### Goal
+Implement pluggable discovery/selection/grouping.
+
+### Deliverables
+- `SourceDiscoverer` interface
+- `SourceSelector` interface
+- `SourceGrouper` interface
+- local plugin registry
+- filesystem discoverer
+- latest/all selectors
+
+### Acceptance criteria
+- folder scan works
+- latest modified file can be selected
+- all files can be selected
+- grouping output is deterministic
+
+---
+
+## Phase 3 — Source readers
+### Goal
+Support core source types.
+
+### Deliverables
+- CSV reader
+- Excel reader
+- Parquet reader
+- JSON reader
+- SQLite query reader
+- generic SQL query reader abstraction
+
+### Acceptance criteria
+- each reader returns standardized frame contract
+- folder of SQLite files can be queried through config
+- messy Excel fallback path is defined
+
+---
+
+## Phase 4 — Runtime schema system
+### Goal
+Generate runtime Pydantic models and SQLite tables from config.
+
+### Deliverables
+- runtime table definition models
+- dynamic Pydantic model factory
 - SQLite schema compiler
-- schema sync service
-- ETL run table
-- source asset table
-- DLQ table
-- metadata catalog tables
+- schema diff engine
 
-This milestone should **not yet** include:
-
-- full Excel parsing complexity
-- all discoverer plugins
-- semantic embeddings
-- complex derived tables
-- UI
-
-But it must be designed so those fit naturally next.
+### Acceptance criteria
+- new dynamic table config creates SQLite table
+- added column updates schema safely
+- schema registry is tracked
 
 ---
 
-# 23. Architecture Decisions Summary
+## Phase 5 — ETL orchestration core
+### Goal
+Build the generic configured pipeline.
 
-## Decision 1
-The application is an **ETL engine**, not a hardcoded finance app.
+### Deliverables
+- run tracker
+- pipeline executor
+- configured table pipeline
+- execution context
+- source file tracking
+- idempotency service
 
-## Decision 2
-Business tables are **config-defined**, not code-defined.
-
-## Decision 3
-Pydantic remains the source of truth via:
-- static system models
-- runtime-generated business models
-
-## Decision 4
-Source discovery is a **plugin subsystem**, not a folder scan utility.
-
-## Decision 5
-Processing strategy is configurable:
-- latest file
-- all files
-- raw then transform
-- transform then append
-- single asset
-- snapshot replace
-- incremental upsert
-
-## Decision 6
-Derived tables are first-class citizens with dependency DAG support.
-
-## Decision 7
-Semantic indexing includes both base and analytical tables.
-
-## Decision 8
-UI edits config and triggers services; it does not host business logic.
+### Acceptance criteria
+- one config can execute end to end
+- rerun skips unchanged files
+- changed files reload correctly
 
 ---
+
+## Phase 6 — Transformation engine
+### Goal
+Support config-defined transformation steps.
+
+### Deliverables
+- transform step contracts
+- step factory
+- Polars-backed transform engine
+- standard steps library
+
+### Acceptance criteria
+- select/rename/cast/filter/join/group/window work
+- step chaining works
+- validation-ready output is produced
+
+---
+
+## Phase 7 — Validation, load, and DLQ
+### Goal
+Make ingestion trustworthy.
+
+### Deliverables
+- Pydantic validator
+- row error mapping
+- DLQ persistence
+- SQLite UPSERT load service
+- record hash strategy
+
+### Acceptance criteria
+- invalid rows go to DLQ
+- valid rows load cleanly
+- identical rows do not duplicate
+- changed rows update correctly
+
+---
+
+## Phase 8 — Derived/analytical tables
+### Goal
+Support table dependencies and analytical materializations.
+
+### Deliverables
+- DAG builder
+- dependency resolver
+- derived table pipeline
+- materialization modes
+- XIRR/CAGR custom plugin hooks
+
+### Acceptance criteria
+- derived tables can depend on base tables
+- join/group/window logic works across tables
+- portfolio analysis can be materialized
+
+---
+
+## Phase 9 — Semantic layer
+### Goal
+Enable local search and future AI use.
+
+### Deliverables
+- template renderer
+- semantic document builder
+- FTS5 indexer
+- sentence-transformers provider
+- sqlite-vec indexing
+- hybrid search service
+
+### Acceptance criteria
+- table rows become semantic docs
+- semantic template changes trigger rebuild
+- keyword + semantic retrieval both work
+
+---
+
+## Phase 10 — UI
+### Goal
+Build the local desktop control center.
+
+### Deliverables
+- CustomTkinter shell
+- config editor screens
+- run execution dashboard
+- DLQ viewer
+- semantic preview panel
+
+### Acceptance criteria
+- config can be edited and saved
+- ETL can be triggered from UI
+- run history and errors are visible
+
+---
+
+## Phase 11 — Hardening
+### Goal
+Make it production-style.
+
+### Deliverables
+- structured logging
+- integration tests
+- contract tests for plugins
+- fixture datasets
+- performance profiling
+- docs
+
+### Acceptance criteria
+- stable reruns
+- test coverage on critical flows
+- plugin contract guarantees
+- Power BI-ready tables verified
+
+---
+
+# 17. What AI Agents Should Build First
+
+If you want agents to “knock it out of the park,” the build order should be:
+
+1. config models
+2. plugin registry
+3. discovery/selection/grouping
+4. readers
+5. dynamic schema compiler
+6. generic configured pipeline
+7. transform engine
+8. validation + DLQ + UPSERT
+9. derived tables
+10. semantic indexing
+11. UI
+
+Do **not** start with the UI.
+Do **not** start with embeddings.
+Do **not** hardcode finance tables too early.
+
+Foundation first.
+
+---
+
+# 18. Final Architecture Decision
+
+## The correct final shape is:
+
+### Engine
+A **generic local ETL runtime**
+
+### Behavior
+**Config-driven**, **plugin-based**, **idempotent**, **schema-aware**, **semantically enabled**
+
+### Data model
+Combination of:
+
+- fixed system tables
+- dynamic runtime-generated user tables
+- derived analytical tables
+- semantic projection/index tables
+
+### Processing style
+- local only
+- Polars-first
+- SQLite target
+- Pydantic-driven validation/schema
+- FTS5 + sqlite-vec for retrieval
+
+### Extension strategy
+- add new source types via readers
+- add new discovery logic via discoverer/selector plugins
+- add new transforms via transform-step plugins
+- add new table behavior via config or custom pipeline plugin
+- add new semantic styles via template config
+
+---
+
+# 19. My Strong Recommendations
+
+## Do this
+- build a **generic `ConfiguredTablePipeline`**
+- keep source discovery separate from source reading
+- generate Pydantic models dynamically from config
+- make derived tables first-class DAG nodes
+- store semantic templates in config
+- version config snapshots per run
+- treat lineage as a core feature, not a nice-to-have
+
+## Do not do this
+- do not hardcode all tables in Python classes
+- do not mix UI with ETL logic
+- do not make static SQL schema the master
+- do not make one giant “reader” class
+- do not skip DLQ and lineage early
+
+---
+
+# 20. Best Next Step
+
+The next practical step is **not code for readers yet**.
+
+The next correct step is:
+
+## Step 1
+Define the **configuration model hierarchy**.
+
+Specifically:
+
+- `ProjectConfig`
+- `SourceConfig`
+- `ReaderConfig`
+- `SelectorConfig`
+- `TableConfig`
+- `ColumnConfig`
+- `TransformStepConfig`
+- `SemanticTemplateConfig`
+- `RuntimeSettings`
+
+Once that exists, the rest of the engine can be built cleanly.
+
+If you want, I can now take this design and move to the next step exactly as you requested:
+
+## Next deliverable
+**Package structure + core abstractions, then first file implementation**
+
+I would start with:
+
+`semantic_finance_etl/config/models/project_config.py`
+
+and I’ll generate it **one file at a time**, complete and runnable.
