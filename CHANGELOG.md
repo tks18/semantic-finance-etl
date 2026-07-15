@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.1-5](https://github.com/tks18/semantic-finance-etl/compare/0.1.1-4...0.1.1-5) (2026-07-15)
+
+
+### Features 🔥
+
+* **contracts:** add hooks.py for the hook definitions ([ef6ea46](https://github.com/tks18/semantic-finance-etl/commit/ef6ea468ed90aee220a905bbf24e87560eac2377))
+* **domain/models:** add hook_results models ([8b85c28](https://github.com/tks18/semantic-finance-etl/commit/8b85c28eda3898150f631ca4c7c04cbf4d693d43))
+
 ### [0.1.1-4](https://github.com/tks18/semantic-finance-etl/compare/0.1.1-2...0.1.1-4) (2026-07-15)
 
 
