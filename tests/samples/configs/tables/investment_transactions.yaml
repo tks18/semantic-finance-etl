@@ -1,0 +1,10 @@
+table_name: investment_transactions
+table_kind: canonical
+
+columns:
+  - name: trade_date
+    type: date
+  - name: symbol
+    type: str
+  - name: amount
+    type: decimal

@@ -1,0 +1,4 @@
+project:
+  project_id: finance_etl
+  name: Finance ETL
+  version: 0.1.0
