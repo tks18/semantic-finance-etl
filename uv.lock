@@ -1088,7 +1088,7 @@ wheels = [
 
 [[package]]
 name = "semantic-finance-etl"
-version = "0.1.1.post7"
+version = "0.1.1.post8"
 source = { editable = "." }
 dependencies = [
     { name = "connectorx" },

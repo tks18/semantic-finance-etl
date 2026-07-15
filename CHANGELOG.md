@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.1-8](https://github.com/tks18/semantic-finance-etl/compare/0.1.1-7...0.1.1-8) (2026-07-15)
+
+
+### Features 🔥
+
+* **domain/models:** add data_schema.py domain model ([b7891aa](https://github.com/tks18/semantic-finance-etl/commit/b7891aa90d0c3a652e9e5401386e7714951cfe22))
+* **domain/models:** add frame_contracts.py domain model ([c6bd80f](https://github.com/tks18/semantic-finance-etl/commit/c6bd80fc00ed54e85712b6fcb162f2db339ab245))
+* **domain/models:** add runtime_table_definition.py model ([5fee1ec](https://github.com/tks18/semantic-finance-etl/commit/5fee1ece6eae1c376518fb40c6780f55b1149866))
+* **etl/loading:** add load_service etl module ([6392d19](https://github.com/tks18/semantic-finance-etl/commit/6392d198d0c771bee660666ac1ee8b0a08b7d83f))
+* **etl/orchestration:** add pipeline_executor.py etl module ([497a9bd](https://github.com/tks18/semantic-finance-etl/commit/497a9bdd0e9da27d1f5b8f1469023b7b9b6d6df1))
+* **etl/validation:** add validation_service.py etl module ([3541e5c](https://github.com/tks18/semantic-finance-etl/commit/3541e5c545248304a7430ce4af5abb487952510e))
+* **infra/database:** add sqlite_writer.py ([a2fec5c](https://github.com/tks18/semantic-finance-etl/commit/a2fec5c522c45c9ed625e33dfe9b5b9241deb068))
+* **infra/factories:** add source_component_factory.py ([15b250e](https://github.com/tks18/semantic-finance-etl/commit/15b250e54fbad8acccfb298427f235f7841277a7))
+* **tables:** add configured_table_pipeline.py table module ([79c4214](https://github.com/tks18/semantic-finance-etl/commit/79c42148c4a3ddf88d6143550e81028482e12a29))
+
+
+### Tests 🧪
+
+* **tests/cases:** add tests for hooks, also upload the output db for comparison ([ec7c689](https://github.com/tks18/semantic-finance-etl/commit/ec7c689092f9c95fa23dde56cc94de8ebd1dbcf0))
+* **tests/cases:** add various test cases for etl pipelines ([8565224](https://github.com/tks18/semantic-finance-etl/commit/8565224c090be58983766dacae6a6190d9a6e961))
+
+
+### Docs 📃
+
+* add doc for current state of project and understanding of future implementations ([064073e](https://github.com/tks18/semantic-finance-etl/commit/064073e7b5bbb726e2a7d1cd3cbc82ee529832b1))
+* add folder_representation doc for understanding ([fdf080a](https://github.com/tks18/semantic-finance-etl/commit/fdf080af28d240b3e073590f69f61a7461a9a681))
+
 ### [0.1.1-7](https://github.com/tks18/semantic-finance-etl/compare/0.1.1-6...0.1.1-7) (2026-07-15)
 
 
