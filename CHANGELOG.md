@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.1-2](https://github.com/tks18/semantic-finance-etl/compare/0.1.1-1...0.1.1-2) (2026-07-15)
+
+
+### Features 🔥
+
+* **config/loader:** add a project_loader utility module ([648b29c](https://github.com/tks18/semantic-finance-etl/commit/648b29cc9636c4adcca1e6dd1f57646b6b2660bb))
+* **config/loader:** create a basic yaml_loader.py ([b241278](https://github.com/tks18/semantic-finance-etl/commit/b241278bd86c3b0bff402c1e468f4ce89eb985eb))
+* **config/services:** add a config validation service ([f310b83](https://github.com/tks18/semantic-finance-etl/commit/f310b838dd19eba41195e42f3cbac31b8b739462))
+
+
+### Tests 🧪
+
+* **tests/config:** add a sample disparated configs for project, runtime, tables, sources ([f2f5103](https://github.com/tks18/semantic-finance-etl/commit/f2f5103553ad294353e7c1303afda6c79c8b4223))
+* **tests/config:** test a simple project config parsing ([f5e72ae](https://github.com/tks18/semantic-finance-etl/commit/f5e72ae1d109fe4f0d5b2fb913ea6f801f78d837))
+
 ### [0.1.1-1](https://github.com/tks18/semantic-finance-etl/compare/0.1.1-0...0.1.1-1) (2026-07-15)
 
 
