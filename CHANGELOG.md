@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.1-4](https://github.com/tks18/semantic-finance-etl/compare/0.1.1-2...0.1.1-4) (2026-07-15)
+
+
+### Features 🔥
+
+* **config/services:** add project_config service ([3e907f8](https://github.com/tks18/semantic-finance-etl/commit/3e907f841eccd9ae71a89b15333a670a88947d8f))
+
+### [0.1.1-3](https://github.com/tks18/semantic-finance-etl/compare/0.1.1-2...0.1.1-3) (2026-07-15)
+
+
+### Features 🔥
+
+* **config/services:** add project_config service ([3e907f8](https://github.com/tks18/semantic-finance-etl/commit/3e907f841eccd9ae71a89b15333a670a88947d8f))
+
 ### [0.1.1-2](https://github.com/tks18/semantic-finance-etl/compare/0.1.1-1...0.1.1-2) (2026-07-15)
 
 
