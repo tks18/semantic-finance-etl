@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.1-6](https://github.com/tks18/semantic-finance-etl/compare/0.1.1-5...0.1.1-6) (2026-07-15)
+
+
+### Tests 🧪
+
+* **tests/cases:** add tests to test hooks import and registry ([5844429](https://github.com/tks18/semantic-finance-etl/commit/584442968cac9c203dc3d42c26c4d767da152525))
+* **tests/samples:** add a simple transformation hook for testing ([992175c](https://github.com/tks18/semantic-finance-etl/commit/992175cae469e272fd59950e90f746312c77f49c))
+
+
+### Features 🔥
+
+* **contracts:** add source_discoverer.py contract ([ab971e1](https://github.com/tks18/semantic-finance-etl/commit/ab971e1185f16326d13a75aa4232515588bf2781))
+* **contracts:** add source_grouper.py contract ([cf850e1](https://github.com/tks18/semantic-finance-etl/commit/cf850e1b50923436060895118203012a11175ddb))
+* **contracts:** add source_selector.py contract ([ad2053a](https://github.com/tks18/semantic-finance-etl/commit/ad2053ae2a7cce3f7948989070e2cfa9c5573b5d))
+* **contracts:** add sourcer_reader.py contract ([7a1c654](https://github.com/tks18/semantic-finance-etl/commit/7a1c6548999f86cd4e1330862c8e5f17648da0c7))
+* **etl/hooks:** add hook_binding_resolver.py ([99ccd18](https://github.com/tks18/semantic-finance-etl/commit/99ccd18ed9f22b09efc00412360e5cfa90f8dfd3))
+* **etl/hooks:** add hook_context_factory.py ([53a6ee7](https://github.com/tks18/semantic-finance-etl/commit/53a6ee7d9acf9fc847a052f41f60351578ab5437))
+* **etl/hooks:** add hook_runner.py ([cbf40f1](https://github.com/tks18/semantic-finance-etl/commit/cbf40f1245123bab114db1cf2e7612542fc69087))
+* **infra/plugins:** add hook_loader infra plugin ([c101015](https://github.com/tks18/semantic-finance-etl/commit/c10101579ab7beadc9796ba6c44ef448ecc6e75e))
+* **infra/plugins:** add local_plugin_registry.py ([767249e](https://github.com/tks18/semantic-finance-etl/commit/767249eab13a27f0268a5b0166e7ef66611feece))
+
 ### [0.1.1-5](https://github.com/tks18/semantic-finance-etl/compare/0.1.1-4...0.1.1-5) (2026-07-15)
 
 

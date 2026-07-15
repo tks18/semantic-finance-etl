@@ -1,7 +1,7 @@
 {
   "name": "semantic-finance-etl",
   "description": "A local, high-performance, configuration-driven ETL application that ingests disparate personal finance data (custom SQL dumps, messy vendor Excels) and builds an AI-Ready, vector-embedded SQLite database using Polars and sqlite-vec",
-  "version": "0.1.1-5",
+  "version": "0.1.1-6",
   "repository": "https://github.com/tks18/semantic-finance-etl",
   "author": "tks18 <tksudharshan@gmail.com>",
   "license": "GPL-3.0-only",
