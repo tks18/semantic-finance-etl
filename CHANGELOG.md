@@ -2,6 +2,45 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.1-1](https://github.com/tks18/semantic-finance-etl/compare/0.1.1-0...0.1.1-1) (2026-07-15)
+
+
+### Docs 📃
+
+* add project_roadmap file ([f6d52ac](https://github.com/tks18/semantic-finance-etl/commit/f6d52ac73ed4097efae4b08d930493c73f86ae7f))
+* **project_roadmap:** remove the document as its unnecessary, later a new briefing will be added ([8a3d249](https://github.com/tks18/semantic-finance-etl/commit/8a3d2497bf8bf55bc82a2bda926784a13ca98b41))
+* update project roadmap ([db07fc2](https://github.com/tks18/semantic-finance-etl/commit/db07fc2531eccabb22d57c9059d7761d5ef75054))
+* update project roadmap ([f302549](https://github.com/tks18/semantic-finance-etl/commit/f30254963a504ba5a6602f2f36d23551849a1f87))
+* update project roadmap ([34381eb](https://github.com/tks18/semantic-finance-etl/commit/34381ebf658dff2f7667b27929925378353003fe))
+* update project roadmap ([c9746a3](https://github.com/tks18/semantic-finance-etl/commit/c9746a3e079da33c15dcff1a6095f5e3c34f22d8))
+
+
+### Build System 🏗
+
+* **pyproject:** add pyyaml dependency ([0cb5788](https://github.com/tks18/semantic-finance-etl/commit/0cb578809ae7e58bdf8cfbc4488777fbfaa5d580))
+* **pyproject:** update pyproject to reflect good build strategy ([cd78db4](https://github.com/tks18/semantic-finance-etl/commit/cd78db451c87c98ae8a7ee8f776fabaecef43de0))
+
+
+### Features 🔥
+
+* **config/models:** add project_config.py ([c615dd6](https://github.com/tks18/semantic-finance-etl/commit/c615dd67ad48fdc3ef81bddc8a2af5bb1044790c))
+* **config/models:** add runtime_config.py ([f34cc14](https://github.com/tks18/semantic-finance-etl/commit/f34cc1401501540cca740512139fb187a9cb4503))
+* **config/models:** add semantic_config.py ([52675e8](https://github.com/tks18/semantic-finance-etl/commit/52675e88fb8e7324e3cc59277b0059af17162334))
+* **config/models:** add source_config.py ([31dde9c](https://github.com/tks18/semantic-finance-etl/commit/31dde9c21294232665d1a2b817c7e40f0b2a3aa9))
+* **config/models:** add table_config.py ([d3075c8](https://github.com/tks18/semantic-finance-etl/commit/d3075c8a0dbc9a9edb1c53aac38be06c75f99d3c))
+* **config/models:** add transform_config.py ([ae7c596](https://github.com/tks18/semantic-finance-etl/commit/ae7c5961907fda117792ee282e69980112f47ef3))
+* **core:** add db_manager file ([6df7c9c](https://github.com/tks18/semantic-finance-etl/commit/6df7c9c699e79e9a5841ac597bd3ade57fc68321))
+* **domain/enums:** add hookstage enums ([9922611](https://github.com/tks18/semantic-finance-etl/commit/9922611e80d599d609de341ab056b9ec2bc83c61))
+* **domain:** add fail_behavior enums ([2dde74f](https://github.com/tks18/semantic-finance-etl/commit/2dde74f233e0bcc2e00b3cdf17326a0e462a357a))
+* **domain:** add load_mode enums ([add322f](https://github.com/tks18/semantic-finance-etl/commit/add322f669bff4bae1e4c25ac4c639cee3e46f8c))
+* **domain:** add table_kind enums ([b0d3915](https://github.com/tks18/semantic-finance-etl/commit/b0d3915979de79eb8b213707d7fb24bb0ec7d1bd))
+* **root:** add main root entry point for the package ([4abcbef](https://github.com/tks18/semantic-finance-etl/commit/4abcbefdc1dabd545723074fd2cae24f9b3faf89))
+
+
+### Tests 🧪
+
+* **tests/samples:** add a sample config to test the existing functionality ([a79260e](https://github.com/tks18/semantic-finance-etl/commit/a79260e0e352dc8eb326df5a86e1af7b4f8f1c28))
+
 ### 0.1.1-0 (2026-07-11)
 
 
