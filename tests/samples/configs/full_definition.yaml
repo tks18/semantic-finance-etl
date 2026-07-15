@@ -1,0 +1,39 @@
+project:
+  project_id: finance_etl
+  name: Finance ETL
+
+runtime:
+  local_db_path: ./data/app.db
+  hook_search_paths:
+    - ./user_hooks
+
+sources:
+  - source_id: investment_backups
+    discoverer: filesystem
+    path: ./data/raw/investments
+    recursive: true
+    include_patterns: ["*.sqlite"]
+    selector: latest_modified
+    grouper: single_group
+    reader:
+      type: sqlite_query
+      sql: "SELECT * FROM trades"
+    target_tables:
+      - investment_transactions
+
+tables:
+  - table_name: investment_transactions
+    table_kind: canonical
+    columns:
+      - name: trade_date
+        type: date
+      - name: symbol
+        type: str
+      - name: amount
+        type: decimal
+    hooks:
+      pre_load:
+        - hook: assign_investment_ids
+          order: 10
+          params:
+            id_prefix: INV
