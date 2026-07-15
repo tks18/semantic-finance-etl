@@ -1,25 +1,3 @@
-Absolutely — your change is a **real architectural refinement**, not a minor tweak.
-
-The strongest version of this system is:
-
-- **still config-driven**
-- **still generic**
-- **still source-discovery-first**
-- **still schema-aware and lineage-heavy**
-- **but all actual table/data transformations happen in typed Python hooks/scripts**
-- **with config only deciding what runs, where it runs, and in what order**
-
-That gives you the best of both worlds:
-
-- **config as orchestration**
-- **Python as execution logic**
-- **strong typing as safety**
-- **UI as a pleasant control layer, not a programming burden**
-
-Below is the revised, comprehensive design doc in the same spirit as the roadmap you shared, but adjusted to match your new direction.
-
----
-
 # `semantic-finance-ETL` v3 Design Document
 ## Local-first, privacy-preserving, configuration-orchestrated ETL and semantic analytics engine with strongly typed Python hook-based transformations
 
