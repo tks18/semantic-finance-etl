@@ -1,233 +1,192 @@
-# `semantic-finance-ETL` v2 Design Document
-## Local-first, privacy-preserving, configuration-driven finance ETL and semantic analytics engine
+Absolutely — your change is a **real architectural refinement**, not a minor tweak.
 
-## 1. Executive Design Decision
+The strongest version of this system is:
 
-`semantic-finance-ETL` should be designed as a **generic ETL engine**, not as a hardcoded “personal finance app with a few pipelines.”
+- **still config-driven**
+- **still generic**
+- **still source-discovery-first**
+- **still schema-aware and lineage-heavy**
+- **but all actual table/data transformations happen in typed Python hooks/scripts**
+- **with config only deciding what runs, where it runs, and in what order**
 
-That means:
+That gives you the best of both worlds:
 
-- **sources are dynamic**
-- **tables are dynamic**
-- **schemas are dynamic**
-- **transformations are dynamic**
-- **semantic sentence generation is dynamic**
-- **analytical/derived tables are first-class**
-- **UI is only a configuration and execution shell**
-- **all behavior is driven by config + plugin registry + runtime model generation**
+- **config as orchestration**
+- **Python as execution logic**
+- **strong typing as safety**
+- **UI as a pleasant control layer, not a programming burden**
 
-The engine itself should only know **how to**:
+Below is the revised, comprehensive design doc in the same spirit as the roadmap you shared, but adjusted to match your new direction.
 
-1. discover data
-2. read data
-3. normalize data
-4. transform data
-5. validate data via Pydantic
-6. create/update SQLite schema
-7. load data idempotently
-8. build semantic text
-9. create embeddings locally
-10. expose results to Power BI and local AI agents
+---
 
-So the correct mental model is:
+# `semantic-finance-ETL` v3 Design Document
+## Local-first, privacy-preserving, configuration-orchestrated ETL and semantic analytics engine with strongly typed Python hook-based transformations
+
+---
+
+## 1. Executive Architecture Decision
+
+`semantic-finance-ETL` should remain a **generic ETL runtime**, not a hardcoded personal finance app.
+
+However, the transformation model should be revised:
+
+### Final design decision
+- **configuration defines orchestration**
+- **Python hook scripts define processing**
+- **source discovery, selection, grouping, lineage, schema compilation, and loading remain first-class engine features**
+- **UI, domain layer, and overall package structure remain intact**
+- **configuration should feel declarative and ergonomic, not like writing a second programming language**
+
+So the correct mental model becomes:
 
 ```text
-semantic-finance-ETL = configurable local ETL runtime
-not
-semantic-finance-ETL = hardcoded finance tables application
+semantic-finance-ETL
+=
+config-orchestrated ETL engine
++
+strongly typed Python hook runtime
++
+dynamic schema/compiler system
++
+source discovery framework
++
+semantic indexing layer
+```
+
+Not:
+
+```text
+app config = place where all logic is painfully encoded
+```
+
+And not:
+
+```text
+every transformation must be expressed in a declarative mini-DSL
+```
+
+Instead:
+
+```text
+config says what to run
+Python hooks say how to transform
+engine guarantees safety, ordering, lineage, idempotency, validation, and load behavior
 ```
 
 ---
 
-## 2. Your Requested Changes, Converted into Design Decisions
+## 2. What Stays the Same vs What Changes
 
-## 2.1 Multi-source ingestion
-The system must support:
+## 2.1 What stays the same
+The following parts of the previous design remain correct and should be preserved:
 
-- `xlsx`
-- `xlsm`
-- `csv`
-- `tsv`
-- `json`
-- `jsonl`
-- `parquet`
-- `sqlite`
-- other local SQL sources
-  - DuckDB
-  - PostgreSQL on localhost
-  - MySQL on localhost
-  - SQL Server on localhost
-  - any ODBC/JDBC-reachable local DB, if configured
-- future extension:
-  - XML
-  - fixed-width text
-  - Access exports
-  - zipped local archives
-
-**Design decision:** all source reading happens through a **plugin-based source adapter layer**.
+- **local-first architecture**
+- **plugin-based source discovery**
+- **SourceDiscoverer / SourceSelector / SourceGrouper / SourceReader separation**
+- **dynamic runtime-generated tables**
+- **Pydantic as schema and validation authority**
+- **SQLite as the local analytics store**
+- **semantic document generation + FTS5 + vector search**
+- **UI as config editor + execution console**
+- **derived tables as first-class DAG nodes**
+- **lineage, DLQ, idempotency, and run tracking as core features**
+- **top-level package structure**
+- **domain-oriented layering**
 
 ---
 
-## 2.2 Flexible source discovery and selection
-You explicitly want combinations like:
+## 2.2 What changes
+The main change is in the transformation engine.
 
-- select **latest modified file only**
-- select **latest created file only**
-- select **all files**
-- select files by pattern
-- select files recursively
-- select SQLite backup DBs from folder, then query only the selected DB(s)
-- append first then transform
-- transform first then append
+### Old direction
+The prior document leaned toward:
+- config-defined transform steps
+- a transform DSL
+- declarative joins/group-bys/windows in config
 
-**Design decision:** split this into separate plugin concepts instead of one giant reader:
+### New direction
+Your revised requirement is better:
 
-- `SourceDiscoverer` → finds candidate files or DBs
-- `SourceSelector` → chooses which candidates to use
-- `SourceGrouper` → groups candidates into one logical batch
-- `SourceReader` → reads the actual file/DB/query
-- `CombineStrategy` → controls append-before/after-transform behavior
+- **all transformations on tables happen in Python scripts/hooks**
+- config should only declare:
+  - when a hook runs
+  - where it runs
+  - on which source/table it runs
+  - with what typed parameters
+- hooks must be:
+  - **fully typed**
+  - **stage-aware**
+  - **safe to validate**
+  - **strongly bound to runtime schema expectations**
 
-This gives true mix-and-match modularity.
-
----
-
-## 2.3 Config-first runtime
-You want all of this configurable:
-
-- db path
-- source definitions
-- per-folder behavior
-- table definitions
-- column mappings
-- schema mapping
-- transformation rules
-- semantic sentence formation
-- batch execution behavior
-
-**Design decision:** create a **configuration model hierarchy in Pydantic**, loaded from YAML/JSON/TOML, with the UI acting as a config editor.
+This is a cleaner and more scalable design.
 
 ---
 
-## 2.4 Analytical tables as first-class entities
-You want tables like `portfolio_analysis` that depend on:
+## 3. Revised Core Philosophy
 
-- investment purchases
-- sales
-- market data
-- benchmark master
-- benchmark data
+The engine should own the **platform concerns**.
 
-and then compute:
+Python hooks should own the **business/data transformation concerns**.
 
-- XIRR
-- CAGR
-- return metrics
-- benchmark comparison
-- exposure metrics
-- summary analytics
+### Engine responsibilities
+The engine should know **how to**:
 
-**Design decision:** support **derived tables / analytical tables** as DAG nodes depending on base tables.
+1. load config
+2. discover sources
+3. select sources
+4. group sources
+5. read files / query DBs
+6. compile runtime schema models
+7. invoke hooks at the right lifecycle stage
+8. validate results
+9. append / merge / upsert into SQLite
+10. record lineage
+11. manage DLQ
+12. build semantic projections
+13. run derived-table dependencies
+14. expose Power BI / local agent friendly tables
 
-So the system has:
+### Hook responsibilities
+Hooks should know **how to**:
 
-- **base ingestion tables**
-- **canonical normalized tables**
-- **derived analytical tables**
-- **semantic document tables**
-- **search/index tables**
+1. clean raw extracted data
+2. reshape source-specific datasets
+3. derive business fields
+4. normalize weird layouts
+5. enrich records
+6. combine batches intelligently
+7. perform final pre-load shaping
+8. compute derived analytical tables
+9. optionally influence semantic projection preparation
 
----
-
-## 2.5 Semantic narrative templates in config
-You want to control the sentence formation from config/UI.
-
-**Design decision:** each table can define:
-
-- semantic title template
-- semantic body template
-- chunking behavior
-- searchable keyword fields
-- embedding inclusion rules
-
-So semantic indexing becomes configurable, not hardcoded.
+This is the correct separation of concerns.
 
 ---
 
-## 2.6 Dynamic tables
-You want every config to define its own set of tables and columns.
+## 4. Revised Architectural Style
 
-This is the biggest architectural shift.
-
-**Design decision:** use a **hybrid schema model**:
-
-### Fixed engine tables
-These are built-in and always exist:
-
-- `etl_runs`
-- `source_files`
-- `lineage_events`
-- `dead_letter_queue`
-- `schema_registry`
-- `semantic_documents`
-- `semantic_embeddings`
-- `config_snapshots`
-
-### Dynamic user tables
-These are created at runtime from config and compiled into:
-
-- Pydantic models
-- SQLite DDL
-- validation rules
-- lineage mappings
-- semantic templates
-
-This preserves your rule:
-
-> Use Pydantic as the single source of truth.
-
-Because the Pydantic models can be **generated dynamically at runtime** from configuration.
-
----
-
-## 2.7 Phased implementation for AI agents
-You want a handoff-ready roadmap so any AI agent can build this properly.
-
-**Design decision:** define clear phases with:
-
-- scope
-- artifacts
-- core classes
-- tests
-- acceptance criteria
-- dependencies
-
-I provide that in Section 15.
-
----
-
-# 3. Architecture
-
-## 3.1 Architectural style
-
-Use **layered architecture with dependency inversion**, but make the runtime **config-driven**.
+Use the same layered architecture, but make **hook orchestration** a first-class subsystem.
 
 ```text
 UI / CLI Layer
     ↓
 Application Services / ETL Orchestration
     ↓
-Domain Models + Contracts
+Domain Models + Hook Contracts + Runtime Schemas
     ↓
 Infrastructure Implementations
 
 Cross-cutting:
-Config, Logging, Registry, Lineage, Run Tracking, Schema Compilation
+Config, Plugin Registry, Hook Registry, Logging, Lineage, Run Tracking, Schema Compilation
 ```
 
 ---
 
-## 3.2 Required top-level layers
+## 5. Top-Level Layers
+
+These top-level layers remain the same:
 
 ```text
 config
@@ -240,313 +199,428 @@ semantic
 ui
 ```
 
----
+### Important note
+We are **not changing the shape of the application**.
 
-## 3.3 Layer responsibilities
-
-| Layer | Responsibility |
-|---|---|
-| `config` | load/validate project configuration, source configs, table configs, transformation configs |
-| `domain` | core Pydantic models, enums, metadata definitions, runtime table schemas |
-| `contracts` | abstract interfaces / protocols for readers, discoverers, selectors, loaders, semantic builders |
-| `infrastructure` | SQLite access, local file scanning, Excel parsing, SQL connectors, hashing, plugin loading |
-| `etl` | orchestration, run tracking, idempotency, validation, DLQ, lineage, schema sync |
-| `tables` | generic configured pipeline + optional specialized custom pipelines |
-| `semantic` | narrative generation, chunking, FTS5, sqlite-vec, embeddings, hybrid search |
-| `ui` | CustomTkinter configuration editor and ETL runner |
+We are changing **how transformations are expressed and executed**.
 
 ---
 
-## 3.4 Important refinement to your original idea
+## 6. New High-Level Processing Model
 
-You earlier said:
-
-> Each table should have its own class-based pipeline.
-
-That is good for strongly modeled systems, but your later requirement says:
-
-> tables must be dynamic and the app should only be an ETL engine.
-
-To satisfy both, I recommend:
-
-### Default
-Use a **generic `ConfiguredTablePipeline`** that runs from config.
-
-### Optional override
-Allow a table to specify a **custom Python plugin class** when needed.
-
-So the system supports both:
-
-- **fully dynamic no-code tables**
-- **specialized code-backed tables for edge cases**
-
-This is the correct compromise.
-
----
-
-# 4. Runtime Processing Model
-
-## 4.1 Core execution graph
-
-The runtime should process a configuration into a DAG like this:
+The runtime should process a project like this:
 
 ```text
 ProjectConfig
   ├── SourceDefinitions
   ├── TableDefinitions
+  ├── HookBindings
   ├── DerivedTableDefinitions
   ├── SemanticDefinitions
   └── RuntimeSettings
 
-Sources
+Discovery
   ↓
-Raw extracted datasets
+Selection
   ↓
-Base / canonical tables
+Grouping
   ↓
-Derived / analytical tables
+Reading
   ↓
-Semantic documents
+Hook execution at lifecycle stages
   ↓
-FTS5 + sqlite-vec indexes
+Validation
+  ↓
+Load / append / upsert
+  ↓
+Derived-table builds
+  ↓
+Semantic projection
+  ↓
+FTS5 + vector indexing
 ```
 
 ---
 
-## 4.2 Table types
+## 7. Most Important New Design Decision: Hook-Centric Transformation Model
 
-Every table config should declare a `table_kind`:
+## 7.1 Why this is the right move
+Your instinct is correct: if transformation logic becomes too config-heavy, the config turns into:
 
-- `base`
-- `canonical`
-- `derived`
-- `semantic_projection`
-- `system`
+- a DSL nobody likes
+- a debugging nightmare
+- an unreadable pseudo-program
+- a painful UI burden
 
-### Meaning
-- **base**: lightly standardized ingestion table
-- **canonical**: cleaned finance-ready table
-- **derived**: computed from other tables
-- **semantic_projection**: narrative/index materialization
-- **system**: ETL metadata tables
+By moving real transformation logic into Python scripts, you get:
+
+- normal programming power
+- reuse across tables and projects
+- testability
+- IDE help
+- mypy / pyright support
+- easier debugging
+- better performance tuning
+- more natural handling of edge cases
+
+### So config should not describe transformations in detail
+Config should describe:
+
+- **which hook**
+- **at which stage**
+- **in what order**
+- **with what parameters**
+- **under what execution policy**
+
+That is the right level of abstraction.
 
 ---
 
-# 5. Recommended Package Structure
+## 7.2 Final rule
+### All data/table transformations should happen through Python hooks
+That includes:
+
+- row cleanup
+- column normalization
+- enrichment
+- joins
+- aggregations
+- post-read cleanup
+- pre-load shaping
+- derived table calculations
+- semantic-preparation shaping
+
+Config should **reference** hooks, not try to replace them.
+
+---
+
+# 8. Hook System Design
+
+## 8.1 Hook categories
+The hook model should be explicit and stable.
+
+### Hook categories
+1. `RunHook`
+2. `DiscoveryHook`
+3. `SelectionHook`
+4. `GroupingHook`
+5. `ReadHook`
+6. `AppendHook`
+7. `ValidationHook`
+8. `LoadHook`
+9. `DerivedTableHook`
+10. `SemanticHook`
+
+Not every project will use all of them, but the system should support them.
+
+---
+
+## 8.2 Hook scopes
+A hook can operate at one of several scopes:
+
+| Scope | Purpose |
+|---|---|
+| `project` | project-wide behavior |
+| `source` | acts on one source definition |
+| `source_group` | acts on grouped source assets |
+| `table` | acts on one table pipeline |
+| `derived_table` | acts on analytical DAG nodes |
+| `semantic_projection` | shapes semantic docs/chunks |
+| `run` | global run-start / run-end logic |
+
+This matters because the same lifecycle stage can mean different things at different scopes.
+
+---
+
+## 8.3 Lifecycle stages
+The engine should expose well-defined hook points.
+
+### Recommended hook stages
+- `on_run_start`
+- `pre_discovery`
+- `post_discovery`
+- `pre_selection`
+- `post_selection`
+- `pre_grouping`
+- `post_grouping`
+- `pre_read`
+- `post_read`
+- `pre_append`
+- `post_append`
+- `pre_validate`
+- `post_validate`
+- `pre_load`
+- `post_load`
+- `pre_derive`
+- `post_derive`
+- `pre_semantic`
+- `post_semantic`
+- `on_run_end`
+- `on_error`
+
+These stages directly support the behavior you asked for:
+
+- **pre-appending**
+- **post-appending**
+- **pre-posting to DB**
+- plus everything around them
+
+---
+
+## 8.4 The key stages for your use case
+If we simplify to the most important ones, the core table pipeline becomes:
 
 ```text
-semantic_finance_etl/
-├── config/
-│   ├── models/
-│   │   ├── project_config.py
-│   │   ├── source_config.py
-│   │   ├── table_config.py
-│   │   ├── transform_config.py
-│   │   ├── semantic_config.py
-│   │   └── runtime_config.py
-│   ├── loaders/
-│   │   ├── yaml_loader.py
-│   │   ├── json_loader.py
-│   │   └── merged_config_loader.py
-│   └── services/
-│       ├── config_resolver.py
-│       ├── config_merger.py
-│       └── config_snapshot_service.py
-│
-├── domain/
-│   ├── enums/
-│   ├── models/
-│   │   ├── base_model.py
-│   │   ├── system_tables.py
-│   │   ├── runtime_table_definition.py
-│   │   ├── lineage_models.py
-│   │   └── semantic_models.py
-│   ├── schema/
-│   │   ├── dynamic_model_factory.py
-│   │   ├── sqlite_type_mapper.py
-│   │   ├── schema_compiler.py
-│   │   └── schema_diff.py
-│   └── metadata/
-│       ├── table_metadata.py
-│       └── field_metadata.py
-│
-├── contracts/
-│   ├── source_discoverer.py
-│   ├── source_selector.py
-│   ├── source_grouper.py
-│   ├── source_reader.py
-│   ├── transform_step.py
-│   ├── validator.py
-│   ├── loader.py
-│   ├── repository.py
-│   ├── semantic_builder.py
-│   ├── embedding_provider.py
-│   └── plugin_registry.py
-│
-├── infrastructure/
-│   ├── discovery/
-│   │   ├── filesystem_discoverer.py
-│   │   └── sql_backup_discoverer.py
-│   ├── selection/
-│   │   ├── all_files_selector.py
-│   │   ├── latest_modified_selector.py
-│   │   ├── latest_created_selector.py
-│   │   └── pattern_selector.py
-│   ├── grouping/
-│   │   ├── single_group_grouper.py
-│   │   ├── folder_group_grouper.py
-│   │   └── pattern_group_grouper.py
-│   ├── readers/
-│   │   ├── csv_reader.py
-│   │   ├── excel_reader.py
-│   │   ├── parquet_reader.py
-│   │   ├── json_reader.py
-│   │   ├── sqlite_reader.py
-│   │   ├── sql_query_reader.py
-│   │   └── duckdb_reader.py
-│   ├── database/
-│   │   ├── sqlite_connection.py
-│   │   ├── sqlite_repository.py
-│   │   ├── sqlite_upsert.py
-│   │   ├── sqlite_schema_manager.py
-│   │   └── sqlite_vec_manager.py
-│   ├── parsing/
-│   │   ├── messy_excel_parser.py
-│   │   └── spatial_excel_locator.py
-│   ├── hashing/
-│   │   ├── file_hasher.py
-│   │   ├── row_hasher.py
-│   │   └── batch_hasher.py
-│   ├── plugins/
-│   │   ├── local_plugin_registry.py
-│   │   └── plugin_loader.py
-│   └── logging/
-│       └── logging_config.py
-│
-├── etl/
-│   ├── orchestration/
-│   │   ├── run_etl_service.py
-│   │   ├── pipeline_executor.py
-│   │   ├── dag_builder.py
-│   │   └── dependency_resolver.py
-│   ├── runtime/
-│   │   ├── pipeline_context.py
-│   │   ├── execution_context.py
-│   │   └── run_summary.py
-│   ├── validation/
-│   │   ├── pydantic_validator.py
-│   │   └── validation_error_mapper.py
-│   ├── loading/
-│   │   ├── load_service.py
-│   │   └── upsert_planner.py
-│   ├── lineage/
-│   │   ├── lineage_recorder.py
-│   │   └── source_to_row_mapper.py
-│   ├── dlq/
-│   │   ├── dlq_service.py
-│   │   └── dlq_record_builder.py
-│   └── tracking/
-│       ├── run_tracker.py
-│       ├── source_file_tracker.py
-│       └── idempotency_service.py
-│
-├── tables/
-│   ├── configured_table_pipeline.py
-│   ├── derived_table_pipeline.py
-│   ├── transform_engine.py
-│   ├── step_factory.py
-│   └── custom/
-│       └── __init__.py
-│
-├── semantic/
-│   ├── narrative/
-│   │   ├── template_renderer.py
-│   │   ├── sentence_builder.py
-│   │   └── semantic_projection_service.py
-│   ├── embeddings/
-│   │   ├── sentence_transformer_provider.py
-│   │   ├── embedding_cache.py
-│   │   └── embedding_service.py
-│   ├── indexing/
-│   │   ├── fts5_indexer.py
-│   │   ├── vector_indexer.py
-│   │   └── hybrid_search_service.py
-│   └── chunking/
-│       └── chunk_strategy.py
-│
-├── ui/
-│   ├── app.py
-│   ├── controllers/
-│   ├── viewmodels/
-│   ├── views/
-│   └── services/
-│
-└── tests/
-    ├── unit/
-    ├── integration/
-    ├── contract/
-    └── fixtures/
+read source
+  ↓
+post_read hook(s)
+  ↓
+pre_append hook(s)
+  ↓
+append / combine
+  ↓
+post_append hook(s)
+  ↓
+pre_validate hook(s)
+  ↓
+validation
+  ↓
+pre_load hook(s)
+  ↓
+load into SQLite
+  ↓
+post_load hook(s)
 ```
 
----
-
-# 6. Core Abstractions
-
-## 6.1 Plugin architecture
-
-The plugin model should be explicit and stable.
-
-## Plugin categories
-1. `SourceDiscoverer`
-2. `SourceSelector`
-3. `SourceGrouper`
-4. `SourceReader`
-5. `TransformStep`
-6. `Validator`
-7. `Loader`
-8. `SemanticBuilder`
-9. `EmbeddingProvider`
-10. `CustomPipeline`
+This is exactly the architecture you were pointing toward.
 
 ---
 
-## 6.2 Key interfaces and purpose
+## 8.5 Hook execution order
+Hook ordering must be deterministic.
 
-| Interface | Purpose |
+### Rule
+Within a stage, hooks run in:
+
+1. explicit `order`
+2. then `priority`
+3. then `hook_id`
+
+This ensures reproducible output.
+
+### Recommended precedence
+- project-level hooks
+- source-level hooks
+- table-level hooks
+- load-level hooks
+
+But stage-specific overrides should be allowed where sensible.
+
+---
+
+## 8.6 Hook execution policy
+Each hook binding should support policies like:
+
+- `enabled: true/false`
+- `fail_behavior: fail_run | skip_hook | route_to_dlq | warn_only`
+- `timeout_seconds`
+- `retry_count`
+- `execution_mode: per_file | per_group | per_table | per_partition`
+- `run_if_source_changed_only`
+- `run_if_dependencies_changed_only`
+
+This keeps the system safe and operationally predictable.
+
+---
+
+# 9. Strongly Typed Hook Contract Design
+
+## 9.1 Non-negotiable requirement
+Hooks must be **fully typed and strong**.
+
+That means a hook should not just be:
+
+```python
+def run(df):
+    ...
+```
+
+That is too weak.
+
+Instead, each hook should declare:
+
+- its stage
+- its input payload type
+- its output payload type
+- its parameter schema
+- optionally supported table kinds / source kinds
+- metadata about whether it mutates schema, columns, or row cardinality
+
+---
+
+## 9.2 Recommended contract pattern
+Use a generic contract pattern like:
+
+```python
+class Hook(Protocol[InputT, OutputT, ParamsT]):
+    hook_name: ClassVar[str]
+    stage: ClassVar[HookStage]
+    params_model: ClassVar[type[ParamsT]]
+
+    def execute(
+        self,
+        context: ExecutionContext,
+        payload: InputT,
+        params: ParamsT,
+    ) -> OutputT:
+        ...
+```
+
+This gives strong typing at the contract layer.
+
+---
+
+## 9.3 Stage-specific typed payloads
+Instead of one generic payload, define explicit payload models.
+
+### Examples
+- `DiscoveryPayload`
+- `ReadPayload`
+- `BatchPayload`
+- `ValidatedBatchPayload`
+- `LoadPayload`
+- `DerivedBuildPayload`
+- `SemanticProjectionPayload`
+
+Each should be a Pydantic model or typed domain object.
+
+---
+
+## 9.4 Example payload responsibilities
+
+| Payload | Contains |
 |---|---|
-| `SourceDiscoverer` | find eligible source assets from local file system / DB location |
-| `SourceSelector` | choose latest/all/matching/nth set |
-| `SourceGrouper` | combine selected sources into logical groups |
-| `SourceReader` | read selected source into DataFrame/LazyFrame |
-| `TransformStep` | apply one transformation operation |
-| `Validator` | validate rows using runtime-generated Pydantic model |
-| `Loader` | UPSERT into SQLite |
-| `SemanticBuilder` | generate configurable narrative text from row(s) |
-| `EmbeddingProvider` | create local embeddings |
-| `CustomPipeline` | escape hatch for bespoke logic |
+| `DiscoveryPayload` | discovered assets, source config, execution metadata |
+| `ReadPayload` | source asset, raw frame, inferred schema, parse metadata |
+| `BatchPayload` | list of frames/assets, combine strategy, lineage refs |
+| `ValidatedBatchPayload` | validated rows/frame, validation summary, target schema |
+| `LoadPayload` | rows/frame to be loaded, load plan, PK strategy, record hash plan |
+| `DerivedBuildPayload` | dependent tables, materialization target, valuation date/run metadata |
+| `SemanticProjectionPayload` | table rows, templates, chunk config, semantic metadata |
+
+This is how the hook system becomes strong rather than loose.
 
 ---
 
-## 6.3 Recommended pipeline context objects
+## 9.5 Hook parameter typing
+Every hook should define a dedicated Pydantic parameter model.
 
-These runtime objects will reduce coupling:
+Example:
 
-- `ProjectContext`
-- `ExecutionContext`
-- `PipelineContext`
-- `SourceGroup`
-- `TableExecutionPlan`
-- `LineageContext`
+```python
+class NormalizeBrokerTradesParams(BaseModel):
+    account_name_from_filename: bool = True
+    drop_zero_quantity: bool = True
+    allowed_trade_types: list[str] = ["BUY", "SELL", "DIVIDEND"]
+```
 
-This avoids passing random dictionaries everywhere.
+This gives:
+
+- config validation
+- UI form generation
+- defaults
+- auto-documentation
+- safe evolution
+
+This is one of the biggest reasons config can feel pleasant instead of painful.
 
 ---
 
-# 7. Configuration-Driven Architecture
+## 9.6 Hook result typing
+Hook outputs should not be raw DataFrames alone.
 
-## 7.1 Recommended config layout
+Return a structured result such as:
 
-Use modular YAML files:
+- updated frame/payload
+- mutation metadata
+- warnings
+- schema impact summary
+- lineage annotations
+- metrics
+
+Example result fields:
+
+- `rows_in`
+- `rows_out`
+- `columns_added`
+- `columns_removed`
+- `schema_changed`
+- `warnings`
+- `timing_ms`
+
+This makes hooks observable and debuggable.
+
+---
+
+## 9.7 Schema-safety contracts
+Each hook should declare whether it:
+
+- preserves schema
+- adds columns
+- removes columns
+- renames columns
+- changes row count
+- expects certain input columns
+- guarantees certain output columns
+
+This is essential because the system is dynamic.
+
+Without this, Python hooks become too magical.
+
+---
+
+# 10. Configuration Should Feel Like a Great Thing, Not a Pain Point
+
+This is one of the most important product decisions.
+
+## 10.1 Config should express intent, not implementation
+Good config says:
+
+- use source X
+- pick latest modified file
+- read via SQLite query reader
+- apply hook A after read
+- apply hook B before load
+- load into table Y
+
+Bad config says:
+
+- here is a 300-line nested pseudo-language with every transformation spelled out awkwardly
+
+So the rule is:
+
+### config is orchestration metadata, not a substitute for Python
+
+---
+
+## 10.2 Ergonomic config principles
+To make config pleasant, the system should enforce these rules:
+
+1. **sane defaults everywhere**
+2. **small number of required fields**
+3. **hook params with defaults**
+4. **reusable source templates**
+5. **reusable hook bindings**
+6. **UI-assisted config generation**
+7. **preview before save**
+8. **config linting**
+9. **config inheritance / profiles**
+10. **clear runtime error messages tied to config paths**
+
+---
+
+## 10.3 Keep the config layout mostly unchanged
+Keep the layout from the earlier roadmap:
 
 ```text
 configs/
@@ -565,188 +639,208 @@ configs/
     └── portfolio_analysis_semantic.yaml
 ```
 
-This is better than one massive config file.
+### Important refinement
+Do **not** add a giant separate transformation DSL file unless absolutely necessary.
+
+Instead, embed hook bindings in:
+
+- source configs
+- table configs
+- derived table configs
+
+That keeps config structure stable and intuitive.
 
 ---
 
-## 7.2 Top-level config concepts
-
+## 10.4 Recommended config concepts
 Every project config should include:
 
 - project metadata
-- SQLite db path
-- plugin registry paths
+- local DB path
+- plugin/hook search paths
 - source definitions
+- selector definitions
+- reader definitions
 - table definitions
-- semantic settings
-- execution settings
+- hook bindings
+- semantic definitions
 - idempotency settings
 - indexing settings
+- execution settings
 
 ---
 
-## 7.3 Example: folder of SQLite backups, choose latest modified, run query
+## 10.5 Example: source config with discovery + hook stages
 
 ```yaml
-sources:
-  - source_id: broker_sqlite_backups
-    discoverer: filesystem
-    selector: latest_modified
-    grouper: single_group
-    path: ./data/raw/broker_backups
-    recursive: true
-    include_patterns: ["*.sqlite", "*.db"]
-    reader:
-      type: sqlite_query
-      sql: |
-        SELECT
-          trade_date,
-          symbol,
-          transaction_type,
-          quantity,
-          price,
-          amount,
-          account_name
-        FROM trades
-    output_mode: single_dataset
-    target_tables: ["investment_transactions"]
+source_id: broker_sqlite_backups
+discoverer: filesystem
+selector: latest_modified
+grouper: single_group
+path: ./data/raw/broker_backups
+recursive: true
+include_patterns: ["*.sqlite", "*.db"]
+
+reader:
+  type: sqlite_query
+  sql: |
+    SELECT
+      trade_date,
+      symbol,
+      transaction_type,
+      quantity,
+      price,
+      amount,
+      account_name
+    FROM trades
+
+target_tables: ["investment_transactions"]
+
+hooks:
+  post_read:
+    - hook: normalize_broker_trades
+      order: 10
+      params:
+        account_name_from_filename: false
+        drop_zero_quantity: true
+
+  pre_append:
+    - hook: standardize_trade_schema
+      order: 20
+
+  post_append:
+    - hook: deduplicate_broker_rows
+      order: 30
+
+  pre_load:
+    - hook: assign_canonical_ids
+      order: 40
 ```
 
-This exactly supports the use case you described.
+This is very readable and does not feel like a pain point.
 
 ---
 
-## 7.4 Example: same folder, load all SQLite DBs and union results
+## 10.6 Example: table config with strong schema + hooks
 
 ```yaml
-sources:
-  - source_id: all_broker_backups
-    discoverer: filesystem
-    selector: all_files
-    grouper: single_group
-    path: ./data/raw/broker_backups
-    recursive: true
-    include_patterns: ["*.sqlite", "*.db"]
-    reader:
-      type: sqlite_query
-      sql: "SELECT * FROM trades"
-    combine_strategy: transform_then_append
-    target_tables: ["investment_transactions"]
+table_name: investment_transactions
+table_kind: canonical
+
+primary_key_strategy:
+  type: deterministic_hash
+  fields:
+    - account_name
+    - symbol
+    - trade_date
+    - transaction_type
+    - quantity
+    - amount
+
+columns:
+  - name: canonical_id
+    type: str
+    nullable: false
+  - name: trade_date
+    type: date
+  - name: symbol
+    type: str
+  - name: transaction_type
+    type: str
+  - name: quantity
+    type: decimal
+  - name: price
+    type: decimal
+  - name: amount
+    type: decimal
+  - name: account_name
+    type: str
+
+hooks:
+  pre_validate:
+    - hook: enforce_trade_business_rules
+      order: 10
+  pre_load:
+    - hook: enrich_trade_tags
+      order: 20
+
+load:
+  mode: upsert
+  record_hash: true
 ```
 
----
-
-## 7.5 Example: dynamic table definition
-
-```yaml
-tables:
-  - table_name: investment_transactions
-    table_kind: canonical
-    primary_key_strategy:
-      type: deterministic_hash
-      fields:
-        - account_name
-        - symbol
-        - trade_date
-        - transaction_type
-        - quantity
-        - amount
-    columns:
-      - name: canonical_id
-        type: str
-        nullable: false
-      - name: trade_date
-        type: date
-      - name: symbol
-        type: str
-      - name: transaction_type
-        type: str
-      - name: quantity
-        type: decimal
-      - name: price
-        type: decimal
-      - name: amount
-        type: decimal
-      - name: account_name
-        type: str
-    load:
-      mode: upsert
-      record_hash: true
-```
+Again, this is orchestration config, not transformation programming.
 
 ---
 
-# 8. Dynamic Tables and Runtime Pydantic Models
+## 10.7 Config inheritance and presets
+To make configuration delightful, support:
 
-## 8.1 How to satisfy “Pydantic is the schema source of truth” with dynamic tables
+- `extends`
+- `defaults`
+- `profiles`
+- `presets`
+- environment-variable interpolation
+- reusable hook param presets
 
-Use this pattern:
+Example uses:
 
-```text
-Config → RuntimeTableDefinition → Runtime Pydantic Model → SQLite DDL
-```
+- many bank CSVs share the same selector
+- many broker files share the same post-read normalizer
+- many derived tables share the same materialization defaults
 
-So Pydantic is still the truth, but it is **generated from config**.
-
----
-
-## 8.2 Recommended model strategy
-
-### Built-in static Pydantic models
-Use normal code-defined models for:
-
-- ETL system metadata tables
-- lineage tables
-- DLQ tables
-- semantic index metadata tables
-
-### Runtime-generated Pydantic models
-Use `pydantic.create_model()` for:
-
-- user-defined finance tables
-- custom analytical tables
-- per-project schemas
+This dramatically reduces repetition.
 
 ---
 
-## 8.3 Schema evolution rules
+## 10.8 UI-generated config forms
+Because hook params are typed, the UI can automatically generate forms from each hook’s Pydantic model.
 
-### Safe automatic changes
-- add nullable column
-- add non-null column with default
-- widen text-like fields
-- add semantic metadata field
+That means the user experience becomes:
 
-### Controlled/manual changes
-- change data type incompatibly
-- remove column
-- rename column
-- split table
-- change primary key logic
+- choose hook from registry
+- UI shows parameter form
+- defaults pre-filled
+- validation happens immediately
+- tooltips come from field descriptions
+- save only valid config
 
-For controlled changes, create a schema diff and require confirmation or migration plan.
+This is exactly how configuration becomes a strength.
 
 ---
 
-# 9. Source Discovery, Selection, Grouping, and Reading
+# 11. Source Discovery Must Remain First-Class
 
-This is one of the most important parts of your design.
+You explicitly said this is key, and I agree completely.
 
-## 9.1 Why these must be separate
+## 11.1 Discovery architecture should remain unchanged
+The prior separation is still correct:
+
+- `SourceDiscoverer`
+- `SourceSelector`
+- `SourceGrouper`
+- `SourceReader`
+
+This architecture should remain independent of hooks.
+
+Hooks can enhance discovery stages, but they should **not replace discovery architecture**.
+
+---
+
+## 11.2 Why this separation is still essential
 Because these are different decisions:
 
 - **what exists?** → discovery
-- **which ones to use?** → selection
-- **how to bundle them?** → grouping
-- **how to read them?** → reader
-- **when to combine?** → combine strategy
+- **which ones should run?** → selection
+- **how are they batched?** → grouping
+- **how do we read them?** → reading
+- **when do we transform?** → hook stages
 
-If you combine these into one class, extensibility dies.
+If you collapse them into a single mechanism, extensibility degrades quickly.
 
 ---
 
-## 9.2 Supported selector plugins
-
+## 11.3 Supported selector plugins
 At minimum:
 
 - `all_files`
@@ -760,9 +854,12 @@ At minimum:
 - `unprocessed_only`
 - `changed_since_last_run`
 
+These remain extremely valuable.
+
 ---
 
-## 9.3 Supported grouping plugins
+## 11.4 Supported grouping plugins
+At minimum:
 
 - `single_group`
 - `group_by_parent_folder`
@@ -772,7 +869,8 @@ At minimum:
 
 ---
 
-## 9.4 Supported reader plugins
+## 11.5 Supported readers
+At minimum:
 
 - `csv_reader`
 - `excel_reader`
@@ -783,157 +881,224 @@ At minimum:
 - `sql_query_reader`
 - `duckdb_reader`
 
-For “other SQL sources,” the abstraction should support either:
+And later:
 
-- table read
-- custom SQL query
-- incremental SQL query with parameter injection
+- XML
+- fixed-width
+- Access export
+- zipped archive readers
 
 ---
 
-## 9.5 Combine strategies
+# 12. Revised Combine Strategy Model
+
+Because transformations are now hook-driven, combine behavior must be hook-aware.
+
+## 12.1 Recommended combine strategies
+Support these modes:
 
 | Strategy | Meaning | Best use case |
 |---|---|---|
-| `single_file` | process one selected file only | latest report |
-| `raw_then_transform` | union raw data, then transform once | homogeneous files |
-| `transform_then_append` | clean each file first, then union canonical rows | messy files |
-| `query_each_then_union` | execute same SQL on many DB files, then union | folder of SQLite backups |
-| `partitioned_batches` | process by time/account/other partition | large datasets |
+| `single_file_only` | process one selected asset only | latest report |
+| `hook_each_then_append` | run per-file hooks first, then union | messy files |
+| `append_then_hook` | union first, then run batch-level hook | stable repeated extracts |
+| `query_each_then_union` | query multiple DBs, then union | SQLite backup folders |
+| `partition_then_hook` | split by partition, hook process each | large datasets |
 
 ### My recommendation
-- default to `transform_then_append` for messy finance inputs
-- use `raw_then_transform` only when schemas are truly stable
-- use `query_each_then_union` for many SQLite backup files
+- default to **`hook_each_then_append`**
+- use **`append_then_hook`** only when schemas are already aligned
+- use **`query_each_then_union`** for folder-based DB discovery
 
 ---
 
-# 10. Transformation Engine
+## 12.2 Where your requested hook points fit
+You mentioned:
 
-## 10.1 Design principle
-Transformations should be **declarative where possible**, with a **plugin escape hatch**.
+- pre-appending
+- post-appending
+- pre-posting to DB
 
-So the engine should support:
+These fit exactly like this:
 
-1. **config-defined standard transformations**
-2. **custom Python transform plugins** for complex edge cases
+| Stage | Purpose |
+|---|---|
+| `post_read` | clean each extracted dataset |
+| `pre_append` | make each dataset append-compatible |
+| `post_append` | run combined normalization/dedup/consolidation |
+| `pre_load` | final shaping before SQLite write |
+| `post_load` | post-write side effects or metadata updates |
 
----
-
-## 10.2 Transformation step library
-
-Support these operations as first-class config steps:
-
-- `select`
-- `rename`
-- `cast`
-- `drop`
-- `filter`
-- `sort`
-- `deduplicate`
-- `fill_null`
-- `replace`
-- `derive_column`
-- `explode`
-- `pivot`
-- `unpivot`
-- `join`
-- `group_by_agg`
-- `window`
-- `rolling`
-- `cumulative`
-- `union`
-- `lookup`
-- `asof_join`
-- `rank`
-- `normalize_text`
-- `parse_date`
-- `parse_decimal`
-- `map_values`
-- `custom_plugin`
-
-This is enough power for 90% of finance workflows.
+This is a clean and powerful lifecycle.
 
 ---
 
-## 10.3 Why Polars LazyFrame is the right backbone
-Because you want:
+# 13. Dynamic Tables and Runtime Schema Strategy
 
-- speed
-- composability
-- lazy optimization
-- batch-friendly transformations
-- SQL-like analytical operations
+## 13.1 Pydantic remains the schema authority
+That should not change.
 
-Use pandas only for messy Excel edge cases or when spatial parsing is required.
+Use this pipeline:
 
----
-
-## 10.4 How analytical table generation should work
-
-A derived table config should declare:
-
-- dependencies
-- transformation steps
-- load mode
-- refresh behavior
-- semantic behavior
-
-Example:
-
-```yaml
-tables:
-  - table_name: portfolio_analysis
-    table_kind: derived
-    depends_on:
-      - investment_transactions
-      - market_prices
-      - benchmark_master
-      - benchmark_prices
-    build:
-      engine: polars
-      steps:
-        - type: join
-          left: investment_transactions
-          right: market_prices
-          on: [symbol]
-          how: left
-        - type: derive_column
-          name: market_value
-          expression: "quantity_held * close_price"
-        - type: group_by_agg
-          by: [portfolio_id, valuation_date]
-          metrics:
-            - name: total_market_value
-              expression: "sum(market_value)"
-        - type: window
-          partition_by: [portfolio_id]
-          order_by: [valuation_date]
-          expressions:
-            - name: running_cost
-              expression: "sum(cost_basis)"
-        - type: custom_plugin
-          plugin: semantic_finance_etl.tables.custom.xirr_step.XirrStep
+```text
+Config → RuntimeTableDefinition → Runtime Pydantic Model → SQLite DDL → Validation
 ```
 
+So Pydantic is still the source of truth, but generated dynamically.
+
 ---
 
-## 10.5 SQL generation explanation using two important SQL operations
+## 13.2 Static vs dynamic models
 
-Because you asked for AI-agent-ready clarity, here is how config-driven transforms should conceptually compile.
+### Static code-defined models
+Use normal models for:
 
-### Example 1: `join`
-Config:
+- `etl_runs`
+- `source_files`
+- `lineage_events`
+- `dead_letter_queue`
+- `schema_registry`
+- `semantic_documents`
+- `semantic_embeddings`
+- `config_snapshots`
+
+### Runtime-generated models
+Use dynamic models for:
+
+- user-defined ingestion tables
+- canonical normalized tables
+- derived analytical tables
+- project-specific tables
+
+---
+
+## 13.3 Hook compatibility with dynamic schemas
+Since tables are dynamic, hooks must declare compatibility in a structured way.
+
+A hook should be able to specify:
+
+- supported table names
+- supported table kinds
+- required columns
+- optional columns
+- produced columns
+- whether schema mutation is expected
+
+This allows the engine to validate bindings at startup.
+
+---
+
+## 13.4 Schema evolution rules
+### Safe automatic changes
+- add nullable column
+- add defaulted column
+- widen text-like column
+- add semantic metadata column
+
+### Controlled changes
+- incompatible type change
+- column removal
+- column rename
+- primary key strategy change
+- output schema changes from a hook that violate expected table definition
+
+If a hook introduces a schema drift, the engine should catch it before load.
+
+---
+
+# 14. Analytical / Derived Tables Remain First-Class
+
+## 14.1 Derived tables should stay as DAG nodes
+This is still correct.
+
+The difference is that their build logic is now usually hook-based.
+
+### Example
+`portfolio_analysis` depends on:
+
+- `investment_transactions`
+- `market_prices`
+- `benchmark_master`
+- `benchmark_prices`
+
+But instead of a large config DSL, it can use:
+
+- dependency config
+- materialization config
+- one or more Python derived-table hooks
+
+That is cleaner.
+
+---
+
+## 14.2 Derived table config pattern
 
 ```yaml
-- type: join
-  left: investment_transactions
-  right: market_prices
-  on: [symbol, valuation_date]
-  how: left
+table_name: portfolio_analysis
+table_kind: derived
+
+depends_on:
+  - investment_transactions
+  - market_prices
+  - benchmark_master
+  - benchmark_prices
+
+build:
+  strategy: python_hook
+  hooks:
+    - hook: build_portfolio_analysis
+      order: 10
+      params:
+        benchmark_default: NIFTY_50
+        compute_xirr: true
+        compute_cagr: true
+
+materialization:
+  type: table
+  rebuild_on_dependency_change: true
 ```
 
-Conceptual SQL equivalent:
+This is much more maintainable than a huge nested transform language.
+
+---
+
+## 14.3 Materialization modes
+Keep support for:
+
+- `table`
+- `view`
+- `incremental_table`
+- `ephemeral`
+
+### Recommendation
+- use `table` for Power BI
+- use `view` for light reusable projections
+- use `incremental_table` only after the engine is stable
+
+---
+
+# 15. Python Hooks Should Still Map Cleanly to SQL-Like Thinking
+
+Even though transformations move to Python, the mental model should remain analytically rigorous.
+
+## 15.1 Why this matters
+Finance and analytics users still think in operations like:
+
+- `JOIN`
+- `GROUP BY`
+- `WINDOW`
+- `FILTER`
+- `UNION`
+
+So Python hook code should be written in a way that clearly corresponds to these concepts.
+
+---
+
+## 15.2 Example: join operation in a hook
+
+Conceptually, if a hook enriches transactions with prices, it is performing a `LEFT JOIN`.
+
+### SQL mental model
 
 ```sql
 SELECT
@@ -945,20 +1110,14 @@ LEFT JOIN market_prices p
    AND t.valuation_date = p.valuation_date;
 ```
 
-### Example 2: `group_by_agg`
-Config:
+### Hook mental model
+The Python hook should express the same logic using Polars or pandas, but in a typed, testable function.
 
-```yaml
-- type: group_by_agg
-  by: [portfolio_id]
-  metrics:
-    - name: total_cost
-      expression: "sum(cost_basis)"
-    - name: total_value
-      expression: "sum(market_value)"
-```
+---
 
-Conceptual SQL equivalent:
+## 15.3 Example: group-by aggregation in a hook
+
+### SQL mental model
 
 ```sql
 SELECT
@@ -969,19 +1128,19 @@ FROM portfolio_positions
 GROUP BY portfolio_id;
 ```
 
-### Example 3: `window`
-Config:
+### Hook mental model
+The derived-table hook computes the same result using DataFrame operations, but the engine still understands:
 
-```yaml
-- type: window
-  partition_by: [portfolio_id]
-  order_by: [valuation_date]
-  expressions:
-    - name: running_value
-      expression: "sum(market_value)"
-```
+- dependencies
+- lineage
+- target schema
+- load behavior
 
-Conceptual SQL equivalent:
+---
+
+## 15.4 Example: window logic in a hook
+
+### SQL mental model
 
 ```sql
 SELECT
@@ -996,254 +1155,228 @@ SELECT
 FROM portfolio_daily_values;
 ```
 
-So your transformation DSL should feel like a structured abstraction over:
+### Design decision
+Even though implementation is in Python, the architecture should document such hooks as performing:
 
-- `JOIN`
-- `GROUP BY`
-- `WINDOW FUNCTIONS`
-- expression columns
-- unions and filters
+- join
+- group-by
+- window-style calculations
 
-This will make it powerful enough for serious analytical finance tables.
-
----
-
-# 11. Analytical Tables as First-Class DAG Nodes
-
-## 11.1 Table dependency graph
-You explicitly want tables built from other tables. Therefore every table config may optionally declare:
-
-- `depends_on`
-- `refresh_policy`
-- `materialization`
-- `rebuild_on_dependency_change`
+This keeps the system analytically transparent.
 
 ---
 
-## 11.2 Materialization modes
-Support:
+# 16. Validation, Load, DLQ, and Idempotency
 
-- `table`
-- `view`
-- `incremental_table`
-- `ephemeral` (in-memory for intermediate steps)
+## 16.1 Validation flow
+Validation should happen after relevant transformation hooks and before load.
 
-### Recommendation
-- use `table` for Power BI consumption
-- use `view` for lightweight reusable projections
-- use `incremental_table` carefully after base engine stabilizes
-
----
-
-## 11.3 Examples of derived finance tables
-- `portfolio_analysis`
-- `daily_holdings`
-- `realized_gains`
-- `unrealized_gains`
-- `cashflow_series`
-- `benchmark_comparison`
-- `goal_progress`
-- `asset_allocation_snapshot`
-- `tax_lot_summary`
-
----
-
-# 12. Semantic Layer
-
-## 12.1 Semantic pipeline
-For each table, optionally generate a semantic projection:
+Recommended sequence:
 
 ```text
-table rows
-  → semantic sentence / narrative template
-  → chunking
-  → FTS5 document
-  → embedding vector
-  → hybrid search index
+read
+→ transform hooks
+→ schema-aware validation
+→ DLQ split
+→ pre_load hook
+→ load
 ```
 
----
+### Important nuance
+Some hooks may intentionally coerce bad source data into valid shape.
 
-## 12.2 Configurable semantic templates
-Each table should support config like:
-
-```yaml
-semantics:
-  - table_name: investment_transactions
-    enabled: true
-    title_template: "Investment transaction for {{ account_name }}"
-    body_template: >
-      On {{ trade_date }}, {{ account_name }} {{ transaction_type }}
-      {{ quantity }} units of {{ symbol }} for {{ amount }}.
-    tags:
-      - "{{ symbol }}"
-      - "{{ transaction_type }}"
-      - "{{ account_name }}"
-```
-
-This lets you edit wording from the UI.
+So `pre_validate` hooks are extremely useful.
 
 ---
 
-## 12.3 Semantic configuration options
-Per table:
+## 16.2 Pre-load hook is essential
+You specifically asked for “pre-posting to DB” behavior.
 
-- enabled/disabled
-- template version
-- title template
-- body template
-- tags template
-- chunk strategy
-- include/exclude columns
-- row-level vs grouped semantic docs
-- re-embed on template change
-- search ranking weights
+This should be a first-class stage.
 
----
+Typical `pre_load` responsibilities:
 
-## 12.4 Search design
-Use hybrid search:
+- assign canonical IDs
+- compute record hashes
+- normalize load-ready datatypes
+- trim final columns
+- apply final business rules
+- attach audit metadata
 
-1. **FTS5** for keyword and exact-ish lookup
-2. **sqlite-vec** for semantic similarity
-3. merge/rerank both locally
-
-This gives:
-
-- precise search
-- semantic retrieval
-- good future support for local AI agents
+This is one of the most important hook points.
 
 ---
 
-# 13. SQLite Database Design
+## 16.3 DLQ remains non-negotiable
+Every failed record should persist with:
 
-## 13.1 Database zones
+- run ID
+- source ID
+- file path
+- row number / row identifier
+- raw payload
+- failing hook or validation stage
+- error message / validation detail
+- timestamp
 
-Use logical zones in one SQLite DB:
-
-### A. System zone
-- `etl_runs`
-- `source_files`
-- `source_groups`
-- `lineage_events`
-- `dead_letter_queue`
-- `schema_registry`
-- `config_snapshots`
-
-### B. Data zone
-- dynamic finance tables
-- canonical tables
-- derived analytical tables
-
-### C. Semantic zone
-- `semantic_documents`
-- `semantic_chunks`
-- `semantic_embeddings`
-- FTS5 virtual tables
-- sqlite-vec tables
+In the hook-based world, DLQ becomes even more important.
 
 ---
 
-## 13.2 Pydantic-driven schema creation
-Never treat `schema.sql` as the source of truth.
-
-Instead:
-
-```text
-Config → Pydantic model → SQLite DDL generator → DB sync
-```
-
-Generated SQL is fine. Handwritten static schema is not the master.
-
----
-
-# 14. Idempotency, Run Tracking, DLQ, and Lineage
-
-## 14.1 Idempotency layers
-You already want this, and it remains essential.
+## 16.4 Idempotency layers
+Keep these exactly as core engine features:
 
 ### File-level
 Track:
-
 - file path
-- file size
+- size
 - modified timestamp
 - created timestamp if available
 - content hash
 
 ### Group-level
-Track source group hash so batches can be skipped or re-run intelligently.
+Track:
+- source group hash
+- selected asset set hash
+- hook binding hash
 
 ### Row-level
 Track:
-
 - `canonical_id`
 - `record_hash`
 
 ### Load-level
-Use SQLite UPSERT behavior:
-
+Use:
 - insert if new
 - update if changed
 - skip if identical
 
 ---
 
-## 14.2 Dead letter queue
-Every failed row should persist with:
+# 17. Lineage Must Expand to Include Hook Invocations
 
-- run id
-- source id
-- file path
-- row number
-- raw payload
-- validation errors
-- transformation step
-- timestamp
+Because transformation logic is now in Python, lineage must become more detailed.
 
-This is non-negotiable for a serious ETL engine.
+## 17.1 Minimum lineage questions the system must answer
+- which file produced this row?
+- which source selector selected it?
+- which hook transformed it after read?
+- which hook touched it before append?
+- which hook touched it before load?
+- which config version was used?
+- which semantic document came from it?
+- which derived-table build produced this analytical row?
 
 ---
 
-## 14.3 Lineage
-At minimum you should be able to answer:
+## 17.2 New hook lineage fields
+Every hook invocation should record:
 
-- which file produced this row?
-- which run loaded it?
-- which config version was used?
-- which transformation steps touched it?
-- which semantic document came from it?
+- `run_id`
+- `table_name`
+- `source_id`
+- `hook_id`
+- `plugin_path`
+- `stage`
+- `params_hash`
+- `input_row_count`
+- `output_row_count`
+- `input_schema_hash`
+- `output_schema_hash`
+- `start_time`
+- `end_time`
+- `status`
+- `error_summary`
 
 This is critical for trust and debugging.
 
 ---
 
-# 15. UI Architecture
+## 17.3 Why this is especially important now
+When logic lives in Python, debugging is only pleasant if you can answer:
 
-## 15.1 Principle
-The UI must **never contain business logic**.
+- what ran?
+- in what order?
+- with what parameters?
+- what changed?
+
+Without hook lineage, Python-based flexibility becomes risky.
+
+With hook lineage, it becomes enterprise-grade.
+
+---
+
+# 18. Semantic Layer Remains Config-Driven
+
+## 18.1 Data transformation vs narrative transformation
+Your “Python only for transformations” requirement should apply to **data processing logic**.
+
+The semantic layer can still remain largely config/template-driven because it is:
+
+- presentation logic
+- indexing metadata
+- search shaping
+
+That is a different concern.
+
+---
+
+## 18.2 Semantic pipeline remains
+Keep the same flow:
+
+```text
+table rows
+  → semantic projection build
+  → chunking
+  → FTS5 document
+  → embedding vector
+  → hybrid retrieval
+```
+
+---
+
+## 18.3 Semantic hooks
+In addition to templates, allow optional hook points:
+
+- `pre_semantic`
+- `post_semantic`
+
+Use cases:
+- custom text cleanup
+- grouped narrative generation
+- tag enrichment
+- row-to-document consolidation
+
+This gives power without making semantic config bloated.
+
+---
+
+# 19. UI Architecture Should Stay the Same, but Gain Hook Awareness
+
+## 19.1 UI principle remains unchanged
+The UI must not contain business logic.
 
 It should only:
 
 - edit config
 - validate config
-- preview discovered files
-- preview transformations
+- preview source discovery
+- preview hook bindings
+- preview hook outputs
 - run ETL
-- show run status
-- display DLQ issues
+- inspect runs
+- inspect DLQ
+- inspect lineage
 - trigger semantic rebuild
-
-Business logic remains in application services.
 
 ---
 
-## 15.2 Recommended UI modules
+## 19.2 UI modules to keep
+Keep the earlier set:
+
 - Project selector
 - Source config editor
 - Table schema editor
-- Transformation pipeline editor
 - Semantic template editor
 - Execution dashboard
 - Run history
@@ -1252,251 +1385,435 @@ Business logic remains in application services.
 
 ---
 
-## 15.3 Key UI workflows
-1. create/update config
-2. test source discovery
-3. preview extraction
-4. preview transformation
-5. save config snapshot
-6. run ETL batch
-7. inspect results/errors
-8. rebuild semantic indexes
+## 19.3 New UI modules to add
+Add hook-specific views without changing the overall UI architecture:
+
+- Hook registry browser
+- Hook binding editor
+- Hook parameter form generator
+- Stage-wise data preview
+- Hook execution trace viewer
+- Hook test-run sandbox
+
+This preserves the UI shape while aligning it to the new engine.
 
 ---
 
-# 16. Phase-by-Phase Implementation Plan
+## 19.4 Why this matters for config experience
+If users can:
 
-This is the handoff section for future AI agents.
+- pick a hook from a registry
+- see its typed parameters
+- preview before/after rows
+- get immediate validation
 
-## Phase 1 — Project skeleton and config foundation
+then configuration becomes a great experience rather than a pain point.
+
+That is exactly the outcome you want.
+
+---
+
+# 20. Recommended Package Structure
+## Keep the same top-level shape, add hook-specific internals
+
+```text
+semantic_finance_etl/
+├── config/
+│   ├── models/
+│   │   ├── project_config.py
+│   │   ├── source_config.py
+│   │   ├── table_config.py
+│   │   ├── transform_config.py        # now stores hook binding models
+│   │   ├── semantic_config.py
+│   │   └── runtime_config.py
+│   ├── loaders/
+│   └── services/
+│
+├── domain/
+│   ├── enums/
+│   │   └── hook_stage.py
+│   ├── models/
+│   │   ├── runtime_table_definition.py
+│   │   ├── hook_payloads.py
+│   │   ├── hook_results.py
+│   │   ├── lineage_models.py
+│   │   └── semantic_models.py
+│   ├── schema/
+│   └── metadata/
+│
+├── contracts/
+│   ├── source_discoverer.py
+│   ├── source_selector.py
+│   ├── source_grouper.py
+│   ├── source_reader.py
+│   ├── hook.py
+│   ├── validator.py
+│   ├── loader.py
+│   ├── semantic_builder.py
+│   ├── embedding_provider.py
+│   └── plugin_registry.py
+│
+├── infrastructure/
+│   ├── discovery/
+│   ├── selection/
+│   ├── grouping/
+│   ├── readers/
+│   ├── database/
+│   ├── plugins/
+│   │   ├── local_plugin_registry.py
+│   │   ├── hook_loader.py
+│   │   └── plugin_loader.py
+│   └── logging/
+│
+├── etl/
+│   ├── orchestration/
+│   │   ├── run_etl_service.py
+│   │   ├── pipeline_executor.py
+│   │   ├── dag_builder.py
+│   │   └── dependency_resolver.py
+│   ├── hooks/
+│   │   ├── hook_runner.py
+│   │   ├── hook_binding_resolver.py
+│   │   ├── hook_context_factory.py
+│   │   └── hook_lineage_recorder.py
+│   ├── runtime/
+│   ├── validation/
+│   ├── loading/
+│   ├── lineage/
+│   ├── dlq/
+│   └── tracking/
+│
+├── tables/
+│   ├── configured_table_pipeline.py
+│   ├── derived_table_pipeline.py
+│   ├── transform_engine.py           # now coordinates hook stages
+│   ├── step_factory.py               # can be repurposed or deprecated
+│   └── custom/
+│
+├── semantic/
+│   ├── narrative/
+│   ├── embeddings/
+│   ├── indexing/
+│   └── chunking/
+│
+├── ui/
+│   ├── app.py
+│   ├── controllers/
+│   ├── viewmodels/
+│   ├── views/
+│   └── services/
+│
+└── tests/
+    ├── unit/
+    ├── integration/
+    ├── contract/
+    └── fixtures/
+```
+
+---
+
+# 21. Recommended Hook Registry Design
+
+## 21.1 Hook registry should be explicit
+The system should maintain a registry of available hooks with metadata such as:
+
+- hook ID
+- plugin path
+- supported stage
+- supported scopes
+- parameter model
+- version
+- docstring/description
+- schema mutation policy
+
+This enables:
+
+- UI discovery
+- config validation
+- runtime compatibility checks
+
+---
+
+## 21.2 Hook discovery strategy
+Support both:
+
+### Built-in hooks
+Shipped with the engine for common use cases.
+
+### User hooks
+Project-specific Python scripts loaded from configured search paths, for example:
+
+- `./user_hooks/`
+- `./plugins/`
+- installed package modules
+
+This allows customization without changing the engine core.
+
+---
+
+# 22. Example of a Typed Hook
+
+Here is the kind of structure a real hook should follow:
+
+```python
+class NormalizeBrokerTradesParams(BaseModel):
+    account_name_from_filename: bool = True
+    drop_zero_quantity: bool = True
+
+class NormalizeBrokerTradesHook(PostReadHook):
+    hook_name = "normalize_broker_trades"
+    params_model = NormalizeBrokerTradesParams
+
+    def execute(
+        self,
+        context: ExecutionContext,
+        payload: ReadPayload,
+        params: NormalizeBrokerTradesParams,
+    ) -> ReadPayload:
+        df = payload.frame
+        # normalize/cast/clean using Polars or pandas
+        return payload.with_frame(df)
+```
+
+Even in this simple example, note the strengths:
+
+- typed params
+- typed input
+- typed output
+- stage-specific contract
+- not just a raw ad hoc function
+
+That is the right direction.
+
+---
+
+# 23. Testing Strategy for the Hook-Based Model
+
+## 23.1 Hook contract tests
+Every hook should be testable in isolation.
+
+Test categories:
+
+- parameter model validation
+- required-column validation
+- schema preservation or mutation expectations
+- row-count behavior
+- deterministic output
+- failure mapping
+
+---
+
+## 23.2 Integration tests
+Need end-to-end tests for:
+
+- source discovery
+- selection
+- reading
+- hook chain execution
+- validation
+- load
+- lineage
+- semantic indexing
+
+---
+
+## 23.3 Golden dataset tests
+For important finance/analytical pipelines, keep fixture datasets and expected outputs so you can detect regressions when a hook changes.
+
+This is especially important for:
+
+- portfolio analysis
+- cash flow series
+- realized/unrealized gains
+- benchmark comparison
+- XIRR/CAGR calculations
+
+---
+
+# 24. Phase-by-Phase Implementation Plan
+
+## Phase 1 — Preserve structure, update config models
 ### Goal
-Establish the package structure and config models.
+Keep the current architecture shape and introduce hook-aware config.
 
 ### Deliverables
-- package skeleton
-- Pydantic config models
-- config loader
-- config merger
-- project bootstrap
+- `HookStage` enum
+- `HookBindingConfig`
+- hook param reference model
+- updated source/table config models
+- config validation rules
 
 ### Acceptance criteria
-- load `project.yaml`
-- validate source/table definitions
-- print runtime plan successfully
+- source/table configs can bind hooks at valid stages
+- invalid stage-hook combinations fail validation
+- config can be loaded and rendered as an execution plan
 
 ---
 
-## Phase 2 — Plugin registry and discovery framework
+## Phase 2 — Hook contracts and registry
 ### Goal
-Implement pluggable discovery/selection/grouping.
+Build the strong type-safe hook foundation.
 
 ### Deliverables
-- `SourceDiscoverer` interface
-- `SourceSelector` interface
-- `SourceGrouper` interface
-- local plugin registry
+- base hook protocols
+- typed payload models
+- typed hook result models
+- hook registry
+- built-in hook metadata model
+
+### Acceptance criteria
+- hooks can be registered and discovered
+- param models validate correctly
+- registry exposes enough info for UI generation
+
+---
+
+## Phase 3 — Discovery, selection, grouping, reading
+### Goal
+Preserve and harden the source framework.
+
+### Deliverables
 - filesystem discoverer
 - latest/all selectors
+- grouping plugins
+- CSV/Excel/SQLite/query readers
 
 ### Acceptance criteria
-- folder scan works
-- latest modified file can be selected
-- all files can be selected
-- grouping output is deterministic
+- source discovery works independently of transformation logic
+- selected assets are deterministic
+- folder-of-SQLite-backups case works cleanly
 
 ---
 
-## Phase 3 — Source readers
+## Phase 4 — Runtime schema compiler
 ### Goal
-Support core source types.
+Generate runtime models and SQLite DDL from config.
 
 ### Deliverables
-- CSV reader
-- Excel reader
-- Parquet reader
-- JSON reader
-- SQLite query reader
-- generic SQL query reader abstraction
-
-### Acceptance criteria
-- each reader returns standardized frame contract
-- folder of SQLite files can be queried through config
-- messy Excel fallback path is defined
-
----
-
-## Phase 4 — Runtime schema system
-### Goal
-Generate runtime Pydantic models and SQLite tables from config.
-
-### Deliverables
-- runtime table definition models
+- runtime table definitions
 - dynamic Pydantic model factory
 - SQLite schema compiler
 - schema diff engine
 
 ### Acceptance criteria
-- new dynamic table config creates SQLite table
-- added column updates schema safely
-- schema registry is tracked
+- new table config creates SQLite table
+- safe schema changes can be applied
+- hooks are checked against table schema expectations
 
 ---
 
-## Phase 5 — ETL orchestration core
+## Phase 5 — Hook runner and stage orchestration
 ### Goal
-Build the generic configured pipeline.
+Make hook execution the heart of the transformation system.
 
 ### Deliverables
-- run tracker
-- pipeline executor
-- configured table pipeline
-- execution context
-- source file tracking
-- idempotency service
+- hook runner
+- hook context factory
+- stage resolver
+- hook lineage recorder
+- error-routing behavior
 
 ### Acceptance criteria
-- one config can execute end to end
-- rerun skips unchanged files
-- changed files reload correctly
+- post-read / pre-append / post-append / pre-load hooks all run correctly
+- ordering is deterministic
+- hook failures respect configured fail behavior
 
 ---
 
-## Phase 6 — Transformation engine
+## Phase 6 — Validation, load, DLQ, idempotency
 ### Goal
-Support config-defined transformation steps.
+Make the pipeline safe and trustworthy.
 
 ### Deliverables
-- transform step contracts
-- step factory
-- Polars-backed transform engine
-- standard steps library
-
-### Acceptance criteria
-- select/rename/cast/filter/join/group/window work
-- step chaining works
-- validation-ready output is produced
-
----
-
-## Phase 7 — Validation, load, and DLQ
-### Goal
-Make ingestion trustworthy.
-
-### Deliverables
-- Pydantic validator
-- row error mapping
+- validation service
 - DLQ persistence
-- SQLite UPSERT load service
-- record hash strategy
+- load planner
+- UPSERT service
+- file/group/row idempotency trackers
 
 ### Acceptance criteria
-- invalid rows go to DLQ
-- valid rows load cleanly
-- identical rows do not duplicate
-- changed rows update correctly
+- invalid records go to DLQ
+- unchanged records skip correctly
+- changed records update correctly
+- hook lineage survives reruns
 
 ---
 
-## Phase 8 — Derived/analytical tables
+## Phase 7 — Derived table hooks
 ### Goal
-Support table dependencies and analytical materializations.
+Enable analytical tables using dependency-aware Python builders.
 
 ### Deliverables
 - DAG builder
 - dependency resolver
 - derived table pipeline
-- materialization modes
-- XIRR/CAGR custom plugin hooks
+- derived build hooks
+- materialization manager
 
 ### Acceptance criteria
 - derived tables can depend on base tables
-- join/group/window logic works across tables
-- portfolio analysis can be materialized
+- portfolio analysis build works
+- rebuild-on-dependency-change works
 
 ---
 
-## Phase 9 — Semantic layer
+## Phase 8 — Semantic layer and hook integration
 ### Goal
-Enable local search and future AI use.
+Retain semantic power without bloating config.
 
 ### Deliverables
-- template renderer
-- semantic document builder
-- FTS5 indexer
-- sentence-transformers provider
-- sqlite-vec indexing
-- hybrid search service
+- semantic template renderer
+- semantic projection service
+- optional semantic hooks
+- FTS5 indexing
+- vector indexing
 
 ### Acceptance criteria
-- table rows become semantic docs
-- semantic template changes trigger rebuild
-- keyword + semantic retrieval both work
+- rows become semantic docs
+- semantic rebuilds work on config/template changes
+- hybrid retrieval works
 
 ---
 
-## Phase 10 — UI
+## Phase 9 — UI enhancements
 ### Goal
-Build the local desktop control center.
+Keep the UI architecture but make it hook-aware.
 
 ### Deliverables
-- CustomTkinter shell
-- config editor screens
-- run execution dashboard
-- DLQ viewer
-- semantic preview panel
+- hook registry browser
+- hook parameter forms
+- hook binding editor
+- preview before/after panels
+- hook execution trace view
 
 ### Acceptance criteria
-- config can be edited and saved
-- ETL can be triggered from UI
-- run history and errors are visible
+- users can bind hooks without editing raw YAML for common tasks
+- typed hook params are editable in UI
+- preview explains stage outputs clearly
 
 ---
 
-## Phase 11 — Hardening
+## Phase 10 — Hardening
 ### Goal
-Make it production-style.
+Make the app production-style and maintainable.
 
 ### Deliverables
 - structured logging
-- integration tests
-- contract tests for plugins
-- fixture datasets
+- contract test suite
+- fixture library
 - performance profiling
-- docs
+- documentation
+- sample starter projects
 
 ### Acceptance criteria
-- stable reruns
-- test coverage on critical flows
-- plugin contract guarantees
-- Power BI-ready tables verified
+- repeatable runs
+- stable hook contracts
+- Power BI-ready data outputs
+- good developer experience for new hooks
 
 ---
 
-# 17. What AI Agents Should Build First
-
-If you want agents to “knock it out of the park,” the build order should be:
-
-1. config models
-2. plugin registry
-3. discovery/selection/grouping
-4. readers
-5. dynamic schema compiler
-6. generic configured pipeline
-7. transform engine
-8. validation + DLQ + UPSERT
-9. derived tables
-10. semantic indexing
-11. UI
-
-Do **not** start with the UI.
-Do **not** start with embeddings.
-Do **not** hardcode finance tables too early.
-
-Foundation first.
-
----
-
-# 18. Final Architecture Decision
+# 25. Final Architecture Decision
 
 ## The correct final shape is:
 
@@ -1504,82 +1821,725 @@ Foundation first.
 A **generic local ETL runtime**
 
 ### Behavior
-**Config-driven**, **plugin-based**, **idempotent**, **schema-aware**, **semantically enabled**
+**Config-orchestrated**, **hook-executed**, **typed**, **schema-aware**, **lineage-rich**, **idempotent**
+
+### Source model
+Separate first-class abstractions for:
+
+- discovery
+- selection
+- grouping
+- reading
+
+### Transformation model
+All real data processing logic happens through:
+
+- **strongly typed Python hooks**
+- invoked at lifecycle stages like:
+  - `post_read`
+  - `pre_append`
+  - `post_append`
+  - `pre_load`
+  - `pre_derive`
+  - `pre_semantic`
 
 ### Data model
 Combination of:
 
 - fixed system tables
-- dynamic runtime-generated user tables
+- runtime-generated dynamic tables
 - derived analytical tables
 - semantic projection/index tables
 
-### Processing style
-- local only
-- Polars-first
+### Platform stack
+- local-first
 - SQLite target
-- Pydantic-driven validation/schema
-- FTS5 + sqlite-vec for retrieval
-
-### Extension strategy
-- add new source types via readers
-- add new discovery logic via discoverer/selector plugins
-- add new transforms via transform-step plugins
-- add new table behavior via config or custom pipeline plugin
-- add new semantic styles via template config
+- Pydantic schema authority
+- Polars-first data processing
+- FTS5 + vector search for retrieval
 
 ---
 
-# 19. My Strong Recommendations
+# 26. My Strong Recommendations
 
 ## Do this
-- build a **generic `ConfiguredTablePipeline`**
-- keep source discovery separate from source reading
-- generate Pydantic models dynamically from config
-- make derived tables first-class DAG nodes
-- store semantic templates in config
-- version config snapshots per run
-- treat lineage as a core feature, not a nice-to-have
+- keep source discovery architecture exactly as a first-class subsystem
+- keep UI and top-level structure intact
+- move all table/data transformations to typed Python hooks
+- let config bind hooks, not encode logic
+- make hook params Pydantic-based
+- record lineage for every hook invocation
+- make `pre_load` a first-class lifecycle stage
+- use derived-table hooks for advanced analytics
+- use UI-generated forms from hook param schemas
 
 ## Do not do this
-- do not hardcode all tables in Python classes
-- do not mix UI with ETL logic
-- do not make static SQL schema the master
-- do not make one giant “reader” class
-- do not skip DLQ and lineage early
+- do not turn config into a giant transform DSL
+- do not collapse discovery/selection/grouping/reading into one class
+- do not let hooks be untyped loose functions
+- do not allow silent schema mutations
+- do not skip hook lineage and observability
+- do not put transformation logic into the UI
 
 ---
 
-# 20. Best Next Step
+# 27. Best Next Step
 
-The next practical step is **not code for readers yet**.
-
-The next correct step is:
+The best next step is now very clear:
 
 ## Step 1
-Define the **configuration model hierarchy**.
+Refactor the config and contract foundation to support:
 
-Specifically:
+- `HookStage`
+- `HookBindingConfig`
+- typed payload contracts
+- hook registry metadata
+- source/table hook attachments
 
-- `ProjectConfig`
-- `SourceConfig`
-- `ReaderConfig`
-- `SelectorConfig`
-- `TableConfig`
-- `ColumnConfig`
-- `TransformStepConfig`
-- `SemanticTemplateConfig`
-- `RuntimeSettings`
+### Concretely, the first files to define should be:
+- `config/models/transform_config.py`  
+  repurposed to hold hook-binding models
+- `domain/enums/hook_stage.py`
+- `domain/models/hook_payloads.py`
+- `contracts/hook.py`
+- `etl/hooks/hook_runner.py`
 
-Once that exists, the rest of the engine can be built cleanly.
+That would lock in the architecture correctly before any reader or UI implementation goes too far.
 
-If you want, I can now take this design and move to the next step exactly as you requested:
+---
 
-## Next deliverable
-**Package structure + core abstractions, then first file implementation**
+# 28. Hooks Linking Strategy - Example
 
-I would start with:
+The cleanest way is **not** to hardcode the Python file path inside every table config.
 
-`semantic_finance_etl/config/models/project_config.py`
+Instead, use a **2-level linking model**:
 
-and I’ll generate it **one file at a time**, complete and runnable.
+1. **project/runtime config** tells the app **where hook files live**
+2. **table config** references the hook by a **stable hook name / id**
+
+That way:
+
+- your `investment_transformations.py` can contain many hooks
+- table configs stay readable
+- refactoring files later does not break all YAMLs
+- the UI can show a friendly hook registry
+- params can be validated strongly from the hook’s typed param model
+
+---
+
+## Recommended linking pattern
+
+## 1) Put your hook file in a known hooks folder
+
+Example:
+
+```text
+semantic_finance_etl/
+├── user_hooks/
+│   ├── __init__.py
+│   └── investment_transformations.py
+├── configs/
+│   ├── project.yaml
+│   └── tables/
+│       └── investment_transactions.yaml
+```
+
+---
+
+## 2) Define the hook class with a stable `hook_name`
+
+Example `user_hooks/investment_transformations.py`:
+
+```python
+from __future__ import annotations
+
+from decimal import Decimal
+from typing import ClassVar
+
+from pydantic import BaseModel, Field
+import polars as pl
+
+from semantic_finance_etl.contracts.hook import TableHook
+from semantic_finance_etl.domain.enums.hook_stage import HookStage
+from semantic_finance_etl.domain.models.hook_payloads import BatchPayload
+from semantic_finance_etl.domain.models.execution_context import ExecutionContext
+
+
+class NormalizeInvestmentTransactionsParams(BaseModel):
+    drop_zero_quantity: bool = Field(default=True)
+    uppercase_symbol: bool = Field(default=True)
+    trim_account_name: bool = Field(default=True)
+    allowed_transaction_types: list[str] = Field(
+        default_factory=lambda: ["BUY", "SELL", "DIVIDEND", "BONUS"]
+    )
+
+
+class NormalizeInvestmentTransactionsHook(
+    TableHook[BatchPayload, BatchPayload, NormalizeInvestmentTransactionsParams]
+):
+    hook_name: ClassVar[str] = "normalize_investment_transactions"
+    stage: ClassVar[HookStage] = HookStage.POST_APPEND
+    params_model = NormalizeInvestmentTransactionsParams
+
+    required_columns: ClassVar[set[str]] = {
+        "trade_date",
+        "symbol",
+        "transaction_type",
+        "quantity",
+        "amount",
+        "account_name",
+    }
+
+    produced_columns: ClassVar[set[str]] = {
+        "trade_date",
+        "symbol",
+        "transaction_type",
+        "quantity",
+        "amount",
+        "account_name",
+    }
+
+    preserves_schema: ClassVar[bool] = True
+
+    def execute(
+        self,
+        context: ExecutionContext,
+        payload: BatchPayload,
+        params: NormalizeInvestmentTransactionsParams,
+    ) -> BatchPayload:
+        df = payload.frame
+
+        if params.trim_account_name and "account_name" in df.columns:
+            df = df.with_columns(pl.col("account_name").str.strip_chars())
+
+        if params.uppercase_symbol and "symbol" in df.columns:
+            df = df.with_columns(pl.col("symbol").str.to_uppercase())
+
+        if params.drop_zero_quantity and "quantity" in df.columns:
+            df = df.filter(pl.col("quantity") != 0)
+
+        if "transaction_type" in df.columns:
+            df = df.filter(
+                pl.col("transaction_type").is_in(params.allowed_transaction_types)
+            )
+
+        return payload.with_frame(df)
+```
+
+---
+
+# How the config links to this hook
+
+There are **two good options**.
+
+## Option A — Best practice: registry-based reference by `hook_name`
+
+This is the one I recommend.
+
+---
+
+## 3) In `project.yaml`, declare hook search paths
+
+```yaml
+project:
+  project_id: personal_finance_etl
+  name: Personal Finance ETL
+
+plugins:
+  hook_search_paths:
+    - "semantic_finance_etl.user_hooks"
+    - "./user_hooks"
+```
+
+At startup, the app:
+
+- scans these paths
+- imports Python modules
+- finds classes implementing the hook contract
+- registers them by `hook_name`
+
+So from `investment_transformations.py`, it registers:
+
+```text
+normalize_investment_transactions
+```
+
+---
+
+## 4) In `investment_transactions.yaml`, reference only the hook name
+
+```yaml
+table_name: investment_transactions
+table_kind: canonical
+
+columns:
+  - name: trade_date
+    type: date
+  - name: symbol
+    type: str
+  - name: transaction_type
+    type: str
+  - name: quantity
+    type: decimal
+  - name: amount
+    type: decimal
+  - name: account_name
+    type: str
+
+hooks:
+  post_append:
+    - hook: normalize_investment_transactions
+      order: 10
+      enabled: true
+      params:
+        drop_zero_quantity: true
+        uppercase_symbol: true
+        trim_account_name: true
+        allowed_transaction_types:
+          - BUY
+          - SELL
+          - DIVIDEND
+          - BONUS
+```
+
+That’s it.
+
+The engine resolves:
+
+```text
+normalize_investment_transactions
+→ found in registry
+→ implemented by investment_transformations.NormalizeInvestmentTransactionsHook
+→ validate params using NormalizeInvestmentTransactionsParams
+→ execute at POST_APPEND stage
+```
+
+---
+
+# Why this is the best design
+
+Because table config stays clean.
+
+Your table YAML does **not** become this:
+
+```yaml
+hook_file: ./user_hooks/investment_transformations.py
+class_name: NormalizeInvestmentTransactionsHook
+```
+
+for every hook.
+
+That would work, but it gets noisy and brittle.
+
+Instead, the better mental model is:
+
+- Python file defines the implementation
+- hook registry discovers it
+- config references the stable business-facing hook id
+
+---
+
+# Option B — Explicit module/class reference
+
+If you want very explicit linking, you can allow config to point directly to module + class.
+
+Example:
+
+```yaml
+hooks:
+  post_append:
+    - hook_ref:
+        module: user_hooks.investment_transformations
+        class: NormalizeInvestmentTransactionsHook
+      order: 10
+      params:
+        drop_zero_quantity: true
+        uppercase_symbol: true
+```
+
+This works too, and is useful when:
+
+- you do not want auto-discovery
+- you want zero ambiguity
+- you are debugging local development
+
+But I would use this as a **secondary supported mode**, not the default.
+
+---
+
+# Best architecture: support both
+
+I’d design it like this:
+
+## Preferred mode
+Use stable registry id:
+
+```yaml
+hook: normalize_investment_transactions
+```
+
+## Fallback mode
+Use explicit import reference:
+
+```yaml
+hook_ref:
+  module: user_hooks.investment_transformations
+  class: NormalizeInvestmentTransactionsHook
+```
+
+That gives flexibility without cluttering normal configs.
+
+---
+
+# What the config model would look like
+
+A good `HookBindingConfig` model could look like this:
+
+```python
+from pydantic import BaseModel, Field
+from typing import Any
+
+
+class ExplicitHookReference(BaseModel):
+    module: str
+    class_name: str = Field(alias="class")
+
+
+class HookBindingConfig(BaseModel):
+    hook: str | None = None
+    hook_ref: ExplicitHookReference | None = None
+
+    order: int = 100
+    enabled: bool = True
+    params: dict[str, Any] = Field(default_factory=dict)
+
+    fail_behavior: str = "fail_run"
+    timeout_seconds: int | None = None
+```
+
+Validation rules:
+
+- exactly one of `hook` or `hook_ref` must be provided
+- if `hook` is used, it must exist in registry
+- if `hook_ref` is used, the class must be importable
+- the hook’s declared `stage` must match the config section where it is bound
+- params must validate against the hook’s `params_model`
+
+---
+
+# How the engine resolves it internally
+
+Here is the runtime flow.
+
+## Step 1 — load project config
+It reads:
+
+```yaml
+plugins:
+  hook_search_paths:
+    - "./user_hooks"
+```
+
+## Step 2 — scan and import hooks
+The registry imports `investment_transformations.py`
+
+## Step 3 — register hook metadata
+It finds:
+
+```python
+hook_name = "normalize_investment_transactions"
+stage = HookStage.POST_APPEND
+params_model = NormalizeInvestmentTransactionsParams
+```
+
+## Step 4 — load table config
+It sees:
+
+```yaml
+hooks:
+  post_append:
+    - hook: normalize_investment_transactions
+```
+
+## Step 5 — binding resolver validates
+The engine checks:
+
+- does this hook exist?
+- does its stage equal `post_append`?
+- are the params valid?
+- are required columns compatible with the target pipeline/table?
+
+## Step 6 — execute during pipeline run
+When the pipeline reaches `post_append`, it invokes the hook.
+
+---
+
+# Concrete example with all files together
+
+## `project.yaml`
+
+```yaml
+project:
+  project_id: personal_finance_etl
+
+plugins:
+  hook_search_paths:
+    - "./user_hooks"
+```
+
+---
+
+## `user_hooks/investment_transformations.py`
+
+```python
+from typing import ClassVar
+from pydantic import BaseModel
+import polars as pl
+
+from semantic_finance_etl.contracts.hook import TableHook
+from semantic_finance_etl.domain.enums.hook_stage import HookStage
+from semantic_finance_etl.domain.models.hook_payloads import BatchPayload
+from semantic_finance_etl.domain.models.execution_context import ExecutionContext
+
+
+class AssignInvestmentIdsParams(BaseModel):
+    id_prefix: str = "INV"
+
+
+class AssignInvestmentIdsHook(TableHook[BatchPayload, BatchPayload, AssignInvestmentIdsParams]):
+    hook_name: ClassVar[str] = "assign_investment_ids"
+    stage: ClassVar[HookStage] = HookStage.PRE_LOAD
+    params_model = AssignInvestmentIdsParams
+
+    required_columns: ClassVar[set[str]] = {"trade_date", "symbol", "account_name"}
+    produced_columns: ClassVar[set[str]] = {"canonical_id"}
+
+    preserves_schema: ClassVar[bool] = False
+
+    def execute(
+        self,
+        context: ExecutionContext,
+        payload: BatchPayload,
+        params: AssignInvestmentIdsParams,
+    ) -> BatchPayload:
+        df = payload.frame.with_columns(
+            pl.concat_str(
+                [
+                    pl.lit(params.id_prefix),
+                    pl.lit("_"),
+                    pl.col("account_name"),
+                    pl.lit("_"),
+                    pl.col("symbol"),
+                    pl.lit("_"),
+                    pl.col("trade_date").cast(pl.Utf8),
+                ]
+            ).alias("canonical_id")
+        )
+        return payload.with_frame(df)
+```
+
+---
+
+## `configs/tables/investment_transactions.yaml`
+
+```yaml
+table_name: investment_transactions
+table_kind: canonical
+
+columns:
+  - name: canonical_id
+    type: str
+    nullable: false
+  - name: trade_date
+    type: date
+  - name: symbol
+    type: str
+  - name: transaction_type
+    type: str
+  - name: quantity
+    type: decimal
+  - name: amount
+    type: decimal
+  - name: account_name
+    type: str
+
+hooks:
+  pre_load:
+    - hook: assign_investment_ids
+      order: 10
+      params:
+        id_prefix: INV
+```
+
+---
+
+# If one file contains many hooks
+
+That is perfectly fine.
+
+For example `investment_transformations.py` can contain:
+
+- `normalize_investment_transactions`
+- `deduplicate_investment_rows`
+- `assign_investment_ids`
+- `build_investment_positions`
+
+Each has a unique `hook_name`.
+
+Then different tables or stages can reference them independently.
+
+Example:
+
+```yaml
+hooks:
+  post_append:
+    - hook: normalize_investment_transactions
+      order: 10
+
+    - hook: deduplicate_investment_rows
+      order: 20
+
+  pre_load:
+    - hook: assign_investment_ids
+      order: 30
+```
+
+---
+
+# How strong typing helps here
+
+Because each hook carries its own typed param model, the engine can do this before runtime:
+
+## validate param shape
+If config says:
+
+```yaml
+params:
+  drop_zero_quantity: "yes"
+```
+
+and the param model expects `bool`, validation can fail early or coerce safely depending on your rule.
+
+## validate hook-stage compatibility
+If `assign_investment_ids` is declared as `PRE_LOAD`, but you place it under `post_append`, the config should fail.
+
+## validate schema compatibility
+If the hook requires columns:
+
+```python
+required_columns = {"trade_date", "symbol", "account_name"}
+```
+
+and the table/pipeline cannot provide them, startup validation should flag it.
+
+That is how hooks stay powerful without becoming dangerous.
+
+---
+
+# My recommended config syntax
+
+If I were locking this architecture, I would use this exact pattern.
+
+## In code
+Each hook declares:
+
+- `hook_name`
+- `stage`
+- `params_model`
+- `required_columns`
+- `produced_columns`
+
+## In project config
+Declare:
+
+```yaml
+plugins:
+  hook_search_paths:
+    - "./user_hooks"
+```
+
+## In table/source config
+Reference:
+
+```yaml
+hook: normalize_investment_transactions
+```
+
+Not file names directly.
+
+---
+
+# Why not reference the file directly every time?
+
+Because this becomes painful fast:
+
+```yaml
+hooks:
+  pre_load:
+    - file: ./user_hooks/investment_transformations.py
+      class: AssignInvestmentIdsHook
+```
+
+Problems:
+
+- noisy YAML
+- renaming files breaks many configs
+- difficult for UI dropdowns
+- awkward for hook registry
+- harder to version and document
+
+So use **stable logical ids** in configs, not physical file paths.
+
+---
+
+# Best-practice mental model
+
+Think of it like this:
+
+## Python file
+Implementation container
+
+## Hook class
+Typed executable unit
+
+## `hook_name`
+Stable public identifier
+
+## Config
+Binding/orchestration layer
+
+So the config should say:
+
+> “For the investment table, run `assign_investment_ids` at `pre_load` with these params.”
+
+Not:
+
+> “Import this exact class from this exact file path and hope the folder never changes.”
+
+---
+
+# Short answer
+
+If you create a typed hook inside `investment_transformations.py`, the best way to link it is:
+
+1. register/discover that file through a global `hook_search_paths` setting
+2. give the hook class a stable `hook_name`
+3. reference that `hook_name` inside the investment table config
+
+Example:
+
+```yaml
+hooks:
+  pre_load:
+    - hook: assign_investment_ids
+      params:
+        id_prefix: INV
+```
+
+with the Python class declaring:
+
+```python
+hook_name = "assign_investment_ids"
+```
+
+---
