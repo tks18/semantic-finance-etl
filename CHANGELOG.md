@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.1-7](https://github.com/tks18/semantic-finance-etl/compare/0.1.1-6...0.1.1-7) (2026-07-15)
+
+
+### Features 🔥
+
+* **infra/discovery:** add filesystem_discoverer infra module ([c539c06](https://github.com/tks18/semantic-finance-etl/commit/c539c06c89f0c6814127a92da1c65bb560d10c15))
+* **infra/grouper:** add single_group_grouper.py infra module ([c89c590](https://github.com/tks18/semantic-finance-etl/commit/c89c590c34702ff80f32b13db6f67fa6f795dddd))
+* **infra/readers:** add sqlite_query_reader.py reader infra module ([1c9eb8c](https://github.com/tks18/semantic-finance-etl/commit/1c9eb8c243f239d0e338e308076afa9a7e62e915))
+* **infra/selector:** add latest_modifier_selector.py infra module ([5f55edc](https://github.com/tks18/semantic-finance-etl/commit/5f55edc0aff6606257ac4e06162a8121edae616c))
+
+
+### Tests 🧪
+
+* **tests/cases:** add config_service tester ([6a1d350](https://github.com/tks18/semantic-finance-etl/commit/6a1d350440fc20a30273254a15c545b5a531ae13))
+* **tests/samples:** add sample db for test ([b2bc87c](https://github.com/tks18/semantic-finance-etl/commit/b2bc87c98ec1377ec1f8635f238eeca267b6c251))
+
 ### [0.1.1-6](https://github.com/tks18/semantic-finance-etl/compare/0.1.1-5...0.1.1-6) (2026-07-15)
 
 
