@@ -1,26 +1,38 @@
+"""
+Pytest test for full pipeline executor run.
+"""
 from semantic_finance_etl.etl.orchestration.pipeline_executor import PipelineExecutor
+import pytest
 
-summary = PipelineExecutor().run("tests/samples/configs")
+def test_pipeline_executor_run():
+    summary = PipelineExecutor().run("tests/samples/configs")
 
-print("Run ID:", summary.run_id)
-print("Pipeline result count:", len(summary.pipeline_results))
+    assert summary.run_id is not None
+    assert summary.project_id == "finance_etl"
+    assert summary.error is None
 
-for result in summary.pipeline_results:
-    print("=" * 80)
-    print("Source:", result.source_id)
-    print("Table:", result.table_name)
-    print("Discovered:", result.discovered_count)
-    print("Selected:", result.selected_count)
-    print("Groups:", result.group_count)
-    print("Read payloads:", result.read_payload_count)
-
-    if result.final_batch_payload is not None:
-        frame = result.final_batch_payload.frame
-        row_count = len(frame) if isinstance(frame, list) else None
-        print("Final row count:", row_count)
-        print("Inferred schema:", result.final_batch_payload.inferred_schema)
-        print("Batch metadata:", result.final_batch_payload.batch_metadata)
-
-    print("Post-read hook executions:", len(result.post_read_records))
-    print("Post-append hook executions:", len(result.post_append_records))
-    print("Pre-load hook executions:", len(result.pre_load_records))
+    assert len(summary.canonical_results) > 0
+    canonical = summary.canonical_results[0]
+    
+    assert canonical.table_name == "companies"
+    assert canonical.error is None
+    
+    if canonical.pipeline_result:
+        pr = canonical.pipeline_result
+        assert pr.discovered_count > 0
+        assert pr.selected_count > 0
+        assert pr.read_payload_count > 0
+        
+        assert pr.final_batch_payload is not None
+        if pr.final_batch_payload.frame is not None:
+            schema = pr.final_batch_payload.frame.collect_schema()
+            assert len(list(schema.names())) > 0
+            
+    if canonical.load_result:
+        assert canonical.load_result.inserted_rows >= 0
+    
+    if canonical.dlq_summary:
+        assert canonical.dlq_summary.persisted_row_count >= 0
+        
+    assert len(summary.derived_results) > 0
+    assert len(summary.semantic_results) > 0
