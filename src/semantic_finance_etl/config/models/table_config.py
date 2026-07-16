@@ -24,6 +24,12 @@ class PrimaryKeyStrategyConfig(BaseModel):
     fields: list[str] = Field(default_factory=list)
 
 
+class ForeignKeyConfig(BaseModel):
+    columns: list[str]
+    target_table: str
+    target_columns: list[str]
+
+
 class LoadConfig(BaseModel):
     mode: LoadMode = LoadMode.APPEND
     record_hash: bool = False
@@ -42,6 +48,7 @@ class TableConfig(BaseModel):
 
     columns: list[ColumnConfig] = Field(default_factory=list)
     primary_key_strategy: PrimaryKeyStrategyConfig | None = None
+    foreign_keys: list[ForeignKeyConfig] = Field(default_factory=list)
     hooks: StageHookBindings = Field(default_factory=StageHookBindings)
     load: LoadConfig = Field(default_factory=LoadConfig)
 
