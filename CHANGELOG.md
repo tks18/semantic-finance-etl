@@ -2,6 +2,52 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.1-11](https://github.com/tks18/semantic-finance-etl/compare/0.1.1-10...0.1.1-11) (2026-07-16)
+
+
+### Bug Fixes 🛠
+
+* **config/loaders:** resolve runtime paths against the configuration root ([a857c45](https://github.com/tks18/semantic-finance-etl/commit/a857c450d1c2bd02c0743cee13bc9f74676f7762))
+* **config/models:** reject unknown keys in strict ETL configuration models ([7bde7e9](https://github.com/tks18/semantic-finance-etl/commit/7bde7e9272b6ed9ec5ced413893fbe495781b132))
+* **config/models:** validate table primary-key and foreign-key field references ([98c4632](https://github.com/tks18/semantic-finance-etl/commit/98c4632e5963af3583ccc6c3950faf747e4f8c40))
+* **domain/models:** compare decimal precision and scale in schema compatibility ([4b72970](https://github.com/tks18/semantic-finance-etl/commit/4b729702089ce041050422071bd10035a0f10ffd))
+* **domain/models:** fixes for runtime table models ([e5714fd](https://github.com/tks18/semantic-finance-etl/commit/e5714fdb10efadd865312201da3f5747a08fb48f))
+* **etl/hooks:** honor configured hook fail_behavior during hook execution ([0013c6f](https://github.com/tks18/semantic-finance-etl/commit/0013c6f870e73ca422b77cfb5414f4ba14310b89))
+* **etl/hooks:** key fixes for builtin_hooks ([ec43ba1](https://github.com/tks18/semantic-finance-etl/commit/ec43ba13defde6542b43c37eb45b9e8690aed3df))
+* **etl/lineage:** index lineage queries by run_id and table_name ([241b973](https://github.com/tks18/semantic-finance-etl/commit/241b9730d6530d20da584e01fddb6deaf50e3500))
+* **etl/orchestration:** key fixes for pipeline executor ([944f6b8](https://github.com/tks18/semantic-finance-etl/commit/944f6b8a28d7dcccf7db5e7b40fd7950658e6433))
+* **etl/orchestration:** reject derived-table dependencies that are not declared tables ([e417394](https://github.com/tks18/semantic-finance-etl/commit/e41739466661ea949ec96a8f94cd6a3814b7400a))
+* **etl/tracking:** reject negative run-history query limits ([ede58a3](https://github.com/tks18/semantic-finance-etl/commit/ede58a372c9f0b4cd87537e27d37f86609308637))
+* **etl/validation:** fixes for validation service ([e42c796](https://github.com/tks18/semantic-finance-etl/commit/e42c79656f2d08b878105a411a3e186b54ba14de))
+* **infra/database:** fixes for sql writer ([7352299](https://github.com/tks18/semantic-finance-etl/commit/7352299f91d85e2011624b37135f2b7e3777b07b))
+* **infra/discoverers:** do not treat POSIX st_ctime as file creation time ([9227782](https://github.com/tks18/semantic-finance-etl/commit/92277827e0dca23f0936b57c35bf41db40c8e6a1))
+* **infra/readers:** use Polars database reading for SQLite query payloads ([bb18d71](https://github.com/tks18/semantic-finance-etl/commit/bb18d715bbd2319a31358cb20c3f0a5ccf06718f))
+* **semantics:** copy document metadata and tags for every generated chunk ([9a2742b](https://github.com/tks18/semantic-finance-etl/commit/9a2742be84dfdca6a36474b024f6b0c8481299fa))
+* **semantics:** fixes for semantic projection service ([0147713](https://github.com/tks18/semantic-finance-etl/commit/0147713aff7667b8e3ae555dcb482e2ce7a6a111))
+* **semantics:** key fixes ([8ec0690](https://github.com/tks18/semantic-finance-etl/commit/8ec0690a7a927a020838a641b4ce36657801a6a3))
+* **tables:** fixes for derived table pipeline ([f36e8c0](https://github.com/tks18/semantic-finance-etl/commit/f36e8c05d98f9483396c5f6813f509a4c298aeb0))
+* **tables:** key fixes for configured table pipeline ([a0f85b3](https://github.com/tks18/semantic-finance-etl/commit/a0f85b390432fb2eb9381c2fba13ae3346e3f419))
+
+
+### Others 🔧
+
+* **pyproject:** align Python classifiers with requires-python ([0de6e53](https://github.com/tks18/semantic-finance-etl/commit/0de6e53f1cc3dd6b24dee5593e35fd5ee2419460))
+
+
+### Tests 🧪
+
+* **adhoc:** fix result-column indexing in demo_vector_join ([8434869](https://github.com/tks18/semantic-finance-etl/commit/8434869d8065cb65744b5b64681e32e39493a370))
+* **adhoc:** quote metadata-derived SQLite identifiers in inspection script ([4ab1bda](https://github.com/tks18/semantic-finance-etl/commit/4ab1bdab9ae8058e6014e3836779fd00accc66c6))
+* guard country industry percentage calculation against null or zero denominators ([2b1c751](https://github.com/tks18/semantic-finance-etl/commit/2b1c751facb112186ad0230dd9db4a4762201ce8))
+* implement the canonical_id output declared by AssignInvestmentIdsHook ([e0a4306](https://github.com/tks18/semantic-finance-etl/commit/e0a430661278c58e3510ac2e8a42effd49c97314))
+* implement the projection exception-handling test ([70d995a](https://github.com/tks18/semantic-finance-etl/commit/70d995a1fbf50499475ad15ef4f73b32ff6e9578))
+* isolate the database used by test_validation_and_load ([f3c7741](https://github.com/tks18/semantic-finance-etl/commit/f3c7741118208fbce5a5aee168519c0d4edbef0c))
+* narrow missing-config-path test to FileNotFoundError ([017589e](https://github.com/tks18/semantic-finance-etl/commit/017589e2136c4d873bb981f60db1c437247384bc))
+* remove stale production metadata from sample hook package ([7c37ba0](https://github.com/tks18/semantic-finance-etl/commit/7c37ba036c09e2fb642c762547ac240160a0dad0))
+* replace db path in the test config ([c9c247b](https://github.com/tks18/semantic-finance-etl/commit/c9c247b71cdf11fb8d819af515eaa4eaf28d8786))
+* require load and DLQ results in complete pipeline-executor tests ([041ddfb](https://github.com/tks18/semantic-finance-etl/commit/041ddfbaba28690d09945984469963f039c29cc0))
+* **tests/samples:** fix the runtime configs to show relative path to config directory ([f539f2c](https://github.com/tks18/semantic-finance-etl/commit/f539f2ce4305d92af811801a5606f767d926dd4e))
+
 ### [0.1.1-10](https://github.com/tks18/semantic-finance-etl/compare/0.1.1-9...0.1.1-10) (2026-07-16)
 
 
