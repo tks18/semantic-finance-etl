@@ -213,6 +213,7 @@ class IndexingService:
                 doc_id=excluded.doc_id,
                 semantic_id=excluded.semantic_id,
                 source_table=excluded.source_table,
+                source_pk=excluded.source_pk,
                 chunk_index=excluded.chunk_index,
                 chunk_text=excluded.chunk_text,
                 title=excluded.title,
@@ -275,22 +276,8 @@ class IndexingService:
                         batch
                     )
                     
-            # --- Insert / Update new chunks ---
+            # Insert / Update new chunks ---
             conn.executemany(sql, values)
-            
-            # For each inserted row, we could theoretically mock an embedding insertion.
-            # In a real scenario, this is where the embedding model would run.
-            # We'll just demonstrate the table structure works by inserting zeroes.
-            cursor = conn.cursor()
-            cursor.execute(f"SELECT id, source_pk FROM {SEMANTIC_INDEX_TABLE} WHERE run_id = ?", (run_id,))
-            rows = cursor.fetchall()
-            
-            vec_sql = f"INSERT INTO {SEMANTIC_VECTORS_TABLE}(id, source_row_id, embedding) SELECT ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM {SEMANTIC_VECTORS_TABLE} WHERE id = ?)"
-            import struct
-            zero_emb = struct.pack("%sf" % 384, *(0.0 for _ in range(384)))
-            vec_values = [(r[0], str(r[1]) if r[1] is not None else "", zero_emb, r[0]) for r in rows]
-            
-            conn.executemany(vec_sql, vec_values)
             
             conn.commit()
             result.indexed_chunks = len(chunks)
