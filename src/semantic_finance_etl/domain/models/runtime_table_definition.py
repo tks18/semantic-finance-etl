@@ -57,13 +57,26 @@ class RuntimeTableDefinition:
             for column in table_config.columns
         ]
         
-        # Inject system metadata columns for canonical tables
-        if table_config.table_kind.value == "canonical":
-            columns.append(RuntimeColumnDefinition(name="_file_hash", type_name="str", nullable=True))
-            columns.append(RuntimeColumnDefinition(name="_source_file", type_name="str", nullable=True))
+        from semantic_finance_etl.domain.enums.table_kind import TableKind
+        
+        existing_cols = {c.name for c in columns}
+        sys_cols_to_add = []
+        
+        if table_config.table_kind == TableKind.CANONICAL:
+            sys_cols_to_add.extend([
+                RuntimeColumnDefinition(name="_file_hash", type_name="str", nullable=True),
+                RuntimeColumnDefinition(name="_source_file", type_name="str", nullable=True)
+            ])
         
         if table_config.load.record_hash:
-            columns.append(RuntimeColumnDefinition(name="_record_hash", type_name="str", nullable=True))
+            sys_cols_to_add.append(
+                RuntimeColumnDefinition(name="_record_hash", type_name="str", nullable=True)
+            )
+            
+        for sys_col in sys_cols_to_add:
+            if sys_col.name in existing_cols:
+                raise ValueError(f"User column '{sys_col.name}' collides with system column in table '{table_config.table_name}'")
+            columns.append(sys_col)
             
         primary_key_fields: list[str] = []
 
