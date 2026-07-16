@@ -142,11 +142,15 @@ class DerivedTablePipeline:
                 present_cols = [c for c in canonical_cols if c in output_frame.collect_schema().names()]
                 if present_cols:
                     import polars as pl
+                    def _hash_row(row_str: str) -> str:
+                        import hashlib
+                        return hashlib.sha256(row_str.encode()).hexdigest()[:32]
+
                     output_frame = output_frame.with_columns(
                         pl.concat_str(
                             [pl.col(c).cast(pl.Utf8).fill_null("") for c in present_cols],
                             separator="||"
-                        ).hash(seed=42).cast(pl.Utf8).alias("_record_hash")
+                        ).map_elements(_hash_row, return_dtype=pl.Utf8).alias("_record_hash")
                     )
 
             rows_written = self._write_output(
@@ -156,7 +160,8 @@ class DerivedTablePipeline:
             result.rows_written = rows_written
 
         except Exception as exc:
-            result.error = f"{type(exc).__name__}: {exc}"
+            import traceback
+            result.error = f"{type(exc).__name__}: {exc}\n{traceback.format_exc()}"
 
         return result
 
@@ -171,11 +176,18 @@ class DerivedTablePipeline:
     ) -> dict[str, pl.LazyFrame]:
         """Read each dependency table from SQLite as a ``pl.LazyFrame``."""
         import sqlite3
+        import re
+        
+        def _val_id(name: str) -> str:
+            if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", name):
+                raise ValueError(f"Invalid SQLite identifier: {name}")
+            return name
 
         frames: dict[str, pl.LazyFrame] = {}
         db_path = project_config.runtime.local_db_path
 
         for dep_name in table_config.depends_on:
+            dep_name = _val_id(dep_name)
             try:
                 conn = sqlite3.connect(db_path)
                 conn.row_factory = sqlite3.Row
