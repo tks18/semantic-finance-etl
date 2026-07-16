@@ -1,17 +1,16 @@
-from semantic_finance_etl.config.services.project_config_service import ProjectConfigService
+"""
+Pytest test for hook registry.
+"""
 from semantic_finance_etl.infrastructure.plugins.local_plugin_registry import LocalPluginRegistry
 
-config = ProjectConfigService().load("tests/samples/configs")
-
-registry = LocalPluginRegistry()
-registry.register_from_search_paths(config.runtime.hook_search_paths)
-
-for hook in registry.list_hooks():
-    print(
-        {
-            "hook_name": hook.hook_name,
-            "stage": hook.stage.value,
-            "module_path": hook.module_path,
-            "class_name": hook.class_name,
-        }
-    )
+def test_hooks_registry(project_config):
+    registry = LocalPluginRegistry()
+    registry.register_from_search_paths(project_config.runtime.hook_search_paths)
+    
+    hooks = registry.list_hooks()
+    assert len(hooks) > 0
+    
+    hook_names = [h.hook_name for h in hooks]
+    assert "clean_companies_data" in hook_names
+    assert "build_industry_stats" in hook_names
+    assert "build_country_industry_summary" in hook_names
