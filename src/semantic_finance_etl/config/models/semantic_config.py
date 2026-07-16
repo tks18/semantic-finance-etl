@@ -22,6 +22,7 @@ class ChunkingConfig(BaseModel):
 class SemanticConfig(BaseModel):
     semantic_id: str
     source_table: str
+    source_pk_field: str | None = None
     document_id_strategy: str = "deterministic_hash"
 
     projection: ProjectionConfig
