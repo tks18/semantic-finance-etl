@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.1-9](https://github.com/tks18/semantic-finance-etl/compare/0.1.1-8...0.1.1-9) (2026-07-16)
+
+
+### Tests 🧪
+
+* **tests/samples:** fix paths of the sample tables ([76182fc](https://github.com/tks18/semantic-finance-etl/commit/76182fcc016a567ec3027abe9042e2e271306700))
+
 ### [0.1.1-8](https://github.com/tks18/semantic-finance-etl/compare/0.1.1-7...0.1.1-8) (2026-07-15)
 
 

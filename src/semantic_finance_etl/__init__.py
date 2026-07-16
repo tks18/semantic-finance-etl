@@ -7,5 +7,5 @@ with strong typing, lineage tracking, and semantic analytics support.
 
 __all__ = ["__version__", "PACKAGE_NAME"]
 
-__version__ = "0.1.0-0"
+__version__ = "0.1.1-9"
 PACKAGE_NAME = "semantic_finance_etl"
