@@ -21,6 +21,12 @@ class HookRegistration:
 class LocalPluginRegistry:
     def __init__(self) -> None:
         self._hooks_by_name: dict[str, HookRegistration] = {}
+        self._register_builtins()
+
+    def _register_builtins(self) -> None:
+        from semantic_finance_etl.etl.hooks.builtin_hooks import ConcatKeyHook, HashRecordHook
+        self.register_hook(ConcatKeyHook)
+        self.register_hook(HashRecordHook)
 
     def register_hook(self, hook_class: type[BaseHook]) -> None:
         hook_name = getattr(hook_class, "hook_name", None)
