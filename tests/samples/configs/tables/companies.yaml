@@ -1,0 +1,34 @@
+table_name: companies
+table_kind: canonical
+description: Base companies canonical table
+
+columns:
+  - name: id
+    type: str
+    primary_key_part: true
+  - name: name
+    type: str
+  - name: domain
+    type: str
+  - name: year_founded
+    type: int
+  - name: industry
+    type: str
+    indexed: true
+  - name: locality
+    type: str
+  - name: country
+    type: str
+  - name: current_employees
+    type: int
+  - name: total_employees
+    type: int
+
+hooks:
+  post_append:
+    - hook: clean_companies_data
+      order: 10
+
+load:
+  mode: upsert
+  record_hash: true

@@ -11,4 +11,4 @@ reader:
   sql: 'SELECT * FROM companies'
 
 target_tables:
-  - investment_transactions
+  - companies

@@ -1,0 +1,16 @@
+semantic_id: industry_semantics
+source_table: industry_stats
+source_pk_field: industry
+
+projection:
+  title_template: "Industry Analytics: {industry}"
+  body_template: "The {industry} sector consists of {company_count} companies with a total workforce of {total_employees} employees. The average founding year in this sector is {avg_year_founded}."
+  metadata_fields:
+    - industry
+    - company_count
+  tag_fields:
+    - industry
+
+chunking:
+  chunk_size: 500
+  chunk_overlap: 50

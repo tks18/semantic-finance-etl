@@ -50,8 +50,6 @@ class NormalizeInvestmentTransactionsHook(
         "account_name",
     }
 
-    preserves_schema: ClassVar[bool] = True
-    may_change_row_count: ClassVar[bool] = True
 
     def execute(
         self,
@@ -108,8 +106,6 @@ class AssignInvestmentIdsHook(
     required_columns: ClassVar[set[str]] = {"trade_date", "symbol", "account_name"}
     produced_columns: ClassVar[set[str]] = {"canonical_id"}
 
-    preserves_schema: ClassVar[bool] = False
-    may_change_row_count: ClassVar[bool] = False
 
     def execute(
         self,
