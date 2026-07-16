@@ -100,6 +100,19 @@ def load_project_config(config_root: str | Path) -> ProjectConfig:
     merged_runtime = dict(project_data.get("runtime", {}))
     merged_runtime.update(runtime_data)
 
+    # Resolve runtime paths against the configuration root
+    if "local_db_path" in merged_runtime:
+        merged_runtime["local_db_path"] = str(root / merged_runtime["local_db_path"])
+        
+    if merged_runtime.get("log_dir"):
+        merged_runtime["log_dir"] = str(root / merged_runtime["log_dir"])
+
+    for path_list_key in ["hook_search_paths", "plugin_search_paths"]:
+        if path_list_key in merged_runtime and isinstance(merged_runtime[path_list_key], list):
+            merged_runtime[path_list_key] = [
+                str(root / p) for p in merged_runtime[path_list_key]
+            ]
+
     merged_data["runtime"] = merged_runtime
     merged_data["sources"] = [*inline_sources, *split_sources]
     merged_data["tables"] = [*inline_tables, *split_tables]
