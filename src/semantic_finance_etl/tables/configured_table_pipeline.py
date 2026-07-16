@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
 from uuid import uuid4
+
+import polars as pl
 
 from semantic_finance_etl.config.models.project_config import ProjectConfig
 from semantic_finance_etl.config.models.source_config import SourceConfig
 from semantic_finance_etl.config.models.table_config import TableConfig
 from semantic_finance_etl.domain.enums.hook_stage import HookStage
+from semantic_finance_etl.domain.models.data_schema import DataSchema
 from semantic_finance_etl.domain.models.hook_payloads import BatchPayload, ReadPayload
 from semantic_finance_etl.etl.hooks.hook_binding_resolver import HookBindingResolver
 from semantic_finance_etl.etl.hooks.hook_runner import HookRunSummary, HookRunner
@@ -32,12 +34,22 @@ class TablePipelineExecutionResult:
 
     final_batch_payload: BatchPayload | None = None
 
-    post_read_records: list[Any] = field(default_factory=list)
-    post_append_records: list[Any] = field(default_factory=list)
-    pre_load_records: list[Any] = field(default_factory=list)
+    post_read_records: list[HookRunSummary] = field(default_factory=list)
+    post_append_records: list[HookRunSummary] = field(default_factory=list)
+    pre_load_records: list[HookRunSummary] = field(default_factory=list)
 
 
 class ConfiguredTablePipeline:
+    """Orchestrates the ingestion pipeline for one source → one target table.
+
+    Execution model:
+    - All frames remain as ``pl.LazyFrame`` throughout hook stages.
+    - Concatenation uses ``pl.concat([...], how="vertical_relaxed")`` — lazy,
+      schema-harmonized, no premature collection.
+    - ``.collect()`` is never called here; that is the validation or load
+      service's responsibility.
+    """
+
     def __init__(
         self,
         *,
@@ -105,22 +117,39 @@ class ConfiguredTablePipeline:
                         metadata={"group_id": group.group_id},
                     )
                     read_payload = post_read_summary.final_payload
-                    result.post_read_records.extend(post_read_summary.records)
+                    result.post_read_records.append(post_read_summary)
 
                 read_payloads.append(read_payload)
 
         result.read_payload_count = len(read_payloads)
 
-        combined_rows = self._append_read_payload_frames(read_payloads)
+        # --- Lazy concatenation boundary ---
+        # Concatenate all read frames into a single lazy plan.  No collection
+        # occurs here.  Schema is merged from available DataSchema objects.
+        combined_frame = self._concat_lazy_frames(read_payloads)
+        merged_schema = self._merge_schemas(read_payloads)
+        all_lineage_refs = self._collect_lineage_refs(read_payloads)
+
+        if combined_frame is not None and table_config.load.record_hash:
+            canonical_cols = [c.name for c in table_config.columns]
+            # Get actual columns present in the schema to safely hash
+            present_cols = [c for c in canonical_cols if c in combined_frame.collect_schema().names()]
+            if present_cols:
+                combined_frame = combined_frame.with_columns(
+                    pl.concat_str(
+                        [pl.col(c).cast(pl.Utf8).fill_null("") for c in present_cols],
+                        separator="||"
+                    ).hash(seed=42).cast(pl.Utf8).alias("_record_hash")
+                )
 
         batch_payload = BatchPayload(
             table_name=table_config.table_name,
             source_id=source_config.source_id,
-            frame=combined_rows,
+            frame=combined_frame,
+            data_schema=merged_schema,
             assets=[payload.asset for payload in read_payloads],
-            combine_strategy="append_rows",
-            inferred_schema=self._merge_inferred_schemas(read_payloads),
-            lineage_refs=self._collect_lineage_refs(read_payloads),
+            combine_strategy="lazy_vertical_relaxed",
+            lineage_refs=all_lineage_refs,
             batch_metadata={
                 "read_payload_count": len(read_payloads),
                 "source_id": source_config.source_id,
@@ -147,7 +176,7 @@ class ConfiguredTablePipeline:
                 source_id=source_config.source_id,
             )
             batch_payload = post_append_summary.final_payload
-            result.post_append_records.extend(post_append_summary.records)
+            result.post_append_records.append(post_append_summary)
 
         resolved_pre_load = resolver.resolve_bindings_for_stage(
             stage=HookStage.PRE_LOAD,
@@ -168,66 +197,72 @@ class ConfiguredTablePipeline:
                 source_id=source_config.source_id,
             )
             batch_payload = pre_load_summary.final_payload
-            result.pre_load_records.extend(pre_load_summary.records)
+            result.pre_load_records.append(pre_load_summary)
 
         result.final_batch_payload = batch_payload
         return result
 
-    def _append_read_payload_frames(
+    # ------------------------------------------------------------------
+    # Private helpers
+    # ------------------------------------------------------------------
+
+    def _concat_lazy_frames(
         self,
         read_payloads: list[ReadPayload],
-    ) -> list[dict[str, Any]]:
-        combined: list[dict[str, Any]] = []
+    ) -> pl.LazyFrame | None:
+        """Return a single lazy concatenated frame or ``None`` when empty.
 
-        for payload in read_payloads:
-            frame = payload.frame
+        Uses ``how="vertical_relaxed"`` so minor schema differences between
+        source files are tolerated (missing columns become nulls).
+        No ``.collect()`` is called.
+        """
+        frames = []
+        for p in read_payloads:
+            if p.frame is not None:
+                # Inject provenance columns lazily
+                file_hash = p.asset.content_hash or "unknown"
+                source_file = p.asset.path or "unknown"
+                
+                df = p.frame.with_columns([
+                    pl.lit(file_hash).cast(pl.Utf8).alias("_file_hash"),
+                    pl.lit(source_file).cast(pl.Utf8).alias("_source_file")
+                ])
+                frames.append(df)
 
-            if frame is None:
-                continue
+        if not frames:
+            return None
 
-            if not isinstance(frame, list):
-                raise ValueError(
-                    "Current ConfiguredTablePipeline expects read payload frame to be "
-                    "a list[dict[str, Any]]."
-                )
+        if len(frames) == 1:
+            return frames[0]
 
-            for row in frame:
-                if not isinstance(row, dict):
-                    raise ValueError(
-                        "Current ConfiguredTablePipeline expects each frame row to be a dict."
-                    )
-                combined.append(row)
+        return pl.concat(frames, how="vertical_relaxed")
 
-        return combined
-
-    def _merge_inferred_schemas(
+    def _merge_schemas(
         self,
         read_payloads: list[ReadPayload],
-    ) -> dict[str, str]:
-        merged: dict[str, str] = {}
+    ) -> DataSchema | None:
+        """Return the first non-None ``DataSchema`` found across payloads.
 
+        Full schema merging (union of columns) can be added later.
+        For now the first schema serves as the authoritative baseline.
+        """
         for payload in read_payloads:
-            for column_name, type_name in payload.inferred_schema.items():
-                merged.setdefault(column_name, type_name)
-
-        return merged
+            if payload.data_schema is not None:
+                return payload.data_schema
+        return None
 
     def _collect_lineage_refs(
         self,
         read_payloads: list[ReadPayload],
     ) -> list[str]:
-        lineage_refs: list[str] = []
-
-        for payload in read_payloads:
-            lineage_refs.extend(payload.lineage_refs)
-
-        # preserve order while removing duplicates
+        """Collect all lineage refs, preserving order and removing duplicates."""
         seen: set[str] = set()
         unique_refs: list[str] = []
 
-        for ref in lineage_refs:
-            if ref not in seen:
-                seen.add(ref)
-                unique_refs.append(ref)
+        for payload in read_payloads:
+            for ref in payload.lineage_refs:
+                if ref not in seen:
+                    seen.add(ref)
+                    unique_refs.append(ref)
 
         return unique_refs
