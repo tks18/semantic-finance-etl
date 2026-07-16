@@ -2,14 +2,24 @@ from __future__ import annotations
 
 import sqlite3
 from pathlib import Path
-from typing import Any
+
+import polars as pl
 
 from semantic_finance_etl.config.models.source_config import ReaderConfig, SourceConfig
 from semantic_finance_etl.contracts.source_reader import SourceReader
+from semantic_finance_etl.domain.models.data_schema import DataSchema
 from semantic_finance_etl.domain.models.hook_payloads import DiscoveredAsset, ReadPayload
 
 
 class SQLiteQuerySourceReader(SourceReader[None]):
+    """Reads data from a SQLite database using a configured SQL query.
+
+    Returns a ``ReadPayload`` whose ``frame`` is a ``pl.LazyFrame``.
+    The query result is loaded into a Polars ``DataFrame`` and immediately
+    converted to ``.lazy()`` so no materialization escapes this boundary.
+    Schema is inferred from the Polars dtype map and attached as a ``DataSchema``.
+    """
+
     reader_name = "sqlite_query"
 
     def read_asset(
@@ -34,21 +44,18 @@ class SQLiteQuerySourceReader(SourceReader[None]):
         if not db_path.exists():
             raise FileNotFoundError(f"SQLite source file not found: {db_path}")
 
-        rows = self._execute_query(
-            db_path=db_path,
-            sql=reader_config.sql,
-        )
-
-        inferred_schema = self._infer_schema(rows)
+        df = self._execute_query(db_path=db_path, sql=reader_config.sql)
+        lazy_frame = df.lazy()
+        inferred_schema = DataSchema.infer_from_polars_schema(df.schema)
 
         return ReadPayload(
             asset=asset,
-            frame=rows,
-            inferred_schema=inferred_schema,
+            frame=lazy_frame,
+            data_schema=inferred_schema,
             parse_metadata={
                 "reader_type": self.reader_name,
                 "sql": reader_config.sql,
-                "row_count": len(rows),
+                "row_count": len(df),
                 "db_path": str(db_path),
             },
             lineage_refs=[
@@ -57,12 +64,12 @@ class SQLiteQuerySourceReader(SourceReader[None]):
             ],
         )
 
-    def _execute_query(
-        self,
-        *,
-        db_path: Path,
-        sql: str,
-    ) -> list[dict[str, Any]]:
+    def _execute_query(self, *, db_path: Path, sql: str) -> pl.DataFrame:
+        """Execute SQL and return a Polars DataFrame.
+
+        This is the single materialization point for the reader.
+        The result is immediately converted to ``.lazy()`` by the caller.
+        """
         connection = sqlite3.connect(str(db_path))
         connection.row_factory = sqlite3.Row
 
@@ -70,37 +77,15 @@ class SQLiteQuerySourceReader(SourceReader[None]):
             cursor = connection.cursor()
             cursor.execute(sql)
             rows = cursor.fetchall()
+            column_names = [desc[0] for desc in cursor.description or []]
 
-            return [dict(row) for row in rows]
+            if not rows:
+                # Return empty DataFrame with correct column names.
+                return pl.DataFrame({col: [] for col in column_names})
+
+            return pl.DataFrame(
+                [dict(row) for row in rows],
+                infer_schema_length=1000,
+            )
         finally:
             connection.close()
-
-    def _infer_schema(
-        self,
-        rows: list[dict[str, Any]],
-    ) -> dict[str, str]:
-        if not rows:
-            return {}
-
-        first_row = rows[0]
-        inferred: dict[str, str] = {}
-
-        for column_name, value in first_row.items():
-            inferred[column_name] = self._python_value_to_type_name(value)
-
-        return inferred
-
-    def _python_value_to_type_name(self, value: Any) -> str:
-        if value is None:
-            return "unknown"
-        if isinstance(value, bool):
-            return "bool"
-        if isinstance(value, int):
-            return "int"
-        if isinstance(value, float):
-            return "float"
-        if isinstance(value, bytes):
-            return "bytes"
-        if isinstance(value, str):
-            return "str"
-        return type(value).__name__
