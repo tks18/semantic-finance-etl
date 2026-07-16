@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 class RuntimeConfig(BaseModel):
     local_db_path: str = "./data/app.db"
     log_level: str = "INFO"
+    log_dir: str | None = None
 
     plugin_search_paths: list[str] = Field(default_factory=list)
     hook_search_paths: list[str] = Field(default_factory=list)
