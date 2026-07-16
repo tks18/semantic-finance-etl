@@ -76,5 +76,17 @@ class TableConfig(BaseModel):
             raise ValueError(
                 f"Derived table '{self.table_name}' must define 'build'."
             )
+            
+        if self.primary_key_strategy:
+            for field in self.primary_key_strategy.fields:
+                if field not in column_names:
+                    raise ValueError(f"Primary key field '{field}' not found in columns of table '{self.table_name}'.")
+                    
+        for fk in self.foreign_keys:
+            if len(fk.columns) != len(fk.target_columns):
+                raise ValueError(f"Foreign key in table '{self.table_name}' has mismatched column count: {len(fk.columns)} local vs {len(fk.target_columns)} target.")
+            for local_col in fk.columns:
+                if local_col not in column_names:
+                    raise ValueError(f"Foreign key local column '{local_col}' not found in columns of table '{self.table_name}'.")
 
         return self
