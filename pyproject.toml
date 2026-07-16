@@ -80,7 +80,7 @@ Issues = "https://github.com/tks18/semantic-finance-etl/issues"
 Changelog = "https://github.com/tks18/semantic-finance-etl/releases"
 
 [project.scripts]
-shan-etl-engine = "semantic_finanace_etl.ui.cli:main"
+shan-etl-engine = "semantic_finance_etl.ui.cli:main"
 
 [tool.poe.tasks]
 dev = "tkreload main.py"
