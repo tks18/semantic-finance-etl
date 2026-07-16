@@ -19,6 +19,7 @@ class ReaderConfig(BaseModel):
 
 
 class SourceConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     source_id: str
     description: str | None = None
 

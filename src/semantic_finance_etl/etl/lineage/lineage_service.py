@@ -181,6 +181,8 @@ class LineageService:
         connection = sqlite3.connect(str(self._db_path))
         try:
             connection.execute(LINEAGE_DDL)
+            connection.execute(f"CREATE INDEX IF NOT EXISTS idx_{LINEAGE_TABLE_NAME}_run_id ON {LINEAGE_TABLE_NAME} (run_id)")
+            connection.execute(f"CREATE INDEX IF NOT EXISTS idx_{LINEAGE_TABLE_NAME}_table_name ON {LINEAGE_TABLE_NAME} (table_name)")
             connection.commit()
         finally:
             connection.close()

@@ -64,5 +64,5 @@ class TestProjectConfigLoading:
                 )
 
     def test_config_service_raises_on_bad_path(self):
-        with pytest.raises(Exception):
+        with pytest.raises(FileNotFoundError):
             ProjectConfigService().load("non/existent/path")

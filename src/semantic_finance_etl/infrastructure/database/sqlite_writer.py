@@ -10,6 +10,12 @@ from semantic_finance_etl.domain.models.runtime_table_definition import (
     RuntimeColumnDefinition,
     RuntimeTableDefinition,
 )
+import re
+
+def _val_id(name: str) -> str:
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", name):
+        raise ValueError(f"Invalid SQLite identifier: {name}")
+    return name
 
 
 class SQLiteWriter:
@@ -80,28 +86,32 @@ class SQLiteWriter:
         column_sql: list[str] = []
         primary_key_sql = ""
 
+        table_name = _val_id(runtime_table.table_name)
         for column in runtime_table.columns:
+            col_name = _val_id(column.name)
             sqlite_type = self._map_type_to_sqlite(column)
             nullable_sql = "" if column.nullable else " NOT NULL"
-            column_sql.append(f"{column.name} {sqlite_type}{nullable_sql}")
+            column_sql.append(f"{col_name} {sqlite_type}{nullable_sql}")
 
         if runtime_table.primary_key_fields:
+            pk_fields = [_val_id(pk) for pk in runtime_table.primary_key_fields]
             primary_key_sql = (
-                ", PRIMARY KEY (" + ", ".join(runtime_table.primary_key_fields) + ")"
+                ", PRIMARY KEY (" + ", ".join(pk_fields) + ")"
             )
 
         foreign_key_sql_list = []
         for fk in getattr(runtime_table, "foreign_keys", []):
-            fk_cols = ", ".join(fk.columns)
-            target_cols = ", ".join(fk.target_columns)
+            fk_cols = ", ".join([_val_id(c) for c in fk.columns])
+            target_table = _val_id(fk.target_table)
+            target_cols = ", ".join([_val_id(c) for c in fk.target_columns])
             foreign_key_sql_list.append(
-                f"FOREIGN KEY ({fk_cols}) REFERENCES {fk.target_table}({target_cols})"
+                f"FOREIGN KEY ({fk_cols}) REFERENCES {target_table}({target_cols})"
             )
         
         fk_sql = (", " + ", ".join(foreign_key_sql_list)) if foreign_key_sql_list else ""
 
         create_sql = (
-            f"CREATE TABLE IF NOT EXISTS {runtime_table.table_name} ("
+            f"CREATE TABLE IF NOT EXISTS {table_name} ("
             + ", ".join(column_sql)
             + primary_key_sql
             + fk_sql
@@ -112,9 +122,10 @@ class SQLiteWriter:
         # Create indexes for indexed columns
         for column in runtime_table.columns:
             if column.indexed:
-                idx_name = f"idx_{runtime_table.table_name}_{column.name}"
+                col_name = _val_id(column.name)
+                idx_name = _val_id(f"idx_{table_name}_{col_name}")
                 connection.execute(
-                    f"CREATE INDEX IF NOT EXISTS {idx_name} ON {runtime_table.table_name}({column.name})"
+                    f"CREATE INDEX IF NOT EXISTS {idx_name} ON {table_name}({col_name})"
                 )
 
     def _truncate_table(
@@ -122,6 +133,7 @@ class SQLiteWriter:
         connection: sqlite3.Connection,
         table_name: str,
     ) -> None:
+        table_name = _val_id(table_name)
         connection.execute(f"DELETE FROM {table_name}")
 
     def _insert_dataframe(
@@ -133,12 +145,13 @@ class SQLiteWriter:
         if len(df) == 0:
             return 0
 
-        columns = runtime_table.column_names
+        columns = [_val_id(c) for c in runtime_table.column_names]
+        table_name = _val_id(runtime_table.table_name)
         placeholders = ", ".join(["?"] * len(columns))
         column_sql = ", ".join(columns)
 
         sql = (
-            f"INSERT INTO {runtime_table.table_name} ({column_sql}) "
+            f"INSERT INTO {table_name} ({column_sql}) "
             f"VALUES ({placeholders})"
         )
 
@@ -163,29 +176,47 @@ class SQLiteWriter:
             inserted = self._insert_dataframe(connection, runtime_table, df)
             return (inserted, 0)
 
-        columns = runtime_table.column_names
+        table_name = _val_id(runtime_table.table_name)
+        columns = [_val_id(c) for c in runtime_table.column_names]
+        pk_cols = [_val_id(c) for c in runtime_table.primary_key_fields]
+        
         placeholders = ", ".join(["?"] * len(columns))
         column_sql = ", ".join(columns)
 
         update_columns = [
-            col for col in columns if col not in runtime_table.primary_key_fields
+            col for col in columns if col not in pk_cols
         ]
         update_sql = ", ".join([f"{col}=excluded.{col}" for col in update_columns])
 
         sql = (
-            f"INSERT INTO {runtime_table.table_name} ({column_sql}) "
+            f"INSERT INTO {table_name} ({column_sql}) "
             f"VALUES ({placeholders}) "
-            f"ON CONFLICT ({', '.join(runtime_table.primary_key_fields)}) "
+            f"ON CONFLICT ({', '.join(pk_cols)}) "
             f"DO UPDATE SET {update_sql}"
         )
 
         values = [
-            [self._normalize_value(row.get(col)) for col in columns]
+            [self._normalize_value(row.get(col)) for col in runtime_table.column_names]
             for row in df.to_dicts()
         ]
+        
+        # Accurately count updated vs inserted rows
+        cursor = connection.cursor()
+        pk_values = [tuple(row.get(col) for col in runtime_table.primary_key_fields) for row in df.to_dicts()]
+        existing_count = 0
+        batch_size = 500
+        for i in range(0, len(pk_values), batch_size):
+            batch = pk_values[i:i+batch_size]
+            in_placeholders = ",".join(["(" + ",".join(["?"] * len(pk_cols)) + ")"] * len(batch))
+            flat_batch = [item for sublist in batch for item in sublist]
+            cursor.execute(f"SELECT COUNT(*) FROM {table_name} WHERE ({', '.join(pk_cols)}) IN ({in_placeholders})", flat_batch)
+            existing_count += cursor.fetchone()[0]
+            
+        updated = existing_count
+        inserted = len(df) - existing_count
 
         connection.executemany(sql, values)
-        return (len(df), 0)
+        return (inserted, updated)
 
     def _map_type_to_sqlite(self, column: RuntimeColumnDefinition) -> str:
         type_name = column.type_name.strip().lower()

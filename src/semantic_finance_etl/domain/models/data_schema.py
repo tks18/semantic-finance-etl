@@ -111,6 +111,9 @@ class DataColumnSchema(BaseModel):
             return False
         if self.logical_type != other.logical_type:
             return False
+        if self.logical_type == LogicalType.DECIMAL:
+            if self.precision != other.precision or self.scale != other.scale:
+                return False
         if strict_nullability and self.nullable != other.nullable:
             return False
         return True
@@ -118,8 +121,8 @@ class DataColumnSchema(BaseModel):
 
 class SchemaTypeMismatch(BaseModel):
     column_name: str
-    expected_type: LogicalType
-    actual_type: LogicalType
+    expected_type: LogicalType | str
+    actual_type: LogicalType | str
 
 
 class SchemaNullabilityMismatch(BaseModel):
@@ -236,6 +239,14 @@ class DataSchema(BaseModel):
                         column_name=left_col.name,
                         expected_type=left_col.logical_type,
                         actual_type=right_col.logical_type,
+                    )
+                )
+            elif left_col.logical_type == LogicalType.DECIMAL and (left_col.precision != right_col.precision or left_col.scale != right_col.scale):
+                diff.type_mismatches.append(
+                    SchemaTypeMismatch(
+                        column_name=left_col.name,
+                        expected_type=f"decimal({left_col.precision},{left_col.scale})",
+                        actual_type=f"decimal({right_col.precision},{right_col.scale})",
                     )
                 )
 

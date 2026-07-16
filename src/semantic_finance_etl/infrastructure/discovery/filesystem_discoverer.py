@@ -67,7 +67,7 @@ class FilesystemSourceDiscoverer(SourceDiscoverer[None]):
                         stat.st_mtime, tz=timezone.utc
                     ),
                     created_at_utc=datetime.fromtimestamp(
-                        stat.st_ctime, tz=timezone.utc
+                        getattr(stat, "st_birthtime", stat.st_mtime), tz=timezone.utc
                     ),
                     content_hash=self._compute_sha256(file_path),
                     extra_metadata={

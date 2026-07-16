@@ -56,20 +56,41 @@ class HookRunner:
             )
 
             hook_instance = binding.create_instance()
-            result = hook_instance.execute(
-                context=context,
-                payload=current_payload,
-                params=binding.params,
-            )
-
-            current_payload = result.payload
-            records.append(
-                HookRunRecord(
-                    hook_name=binding.hook_name,
-                    stage=stage,
-                    result=result,
+            
+            try:
+                result = hook_instance.execute(
+                    context=context,
+                    payload=current_payload,
+                    params=binding.params,
                 )
-            )
+                current_payload = result.payload
+                records.append(
+                    HookRunRecord(
+                        hook_name=binding.hook_name,
+                        stage=stage,
+                        result=result,
+                    )
+                )
+            except Exception as e:
+                import logging
+                from semantic_finance_etl.domain.enums.fail_behavior import FailBehavior
+                logger = logging.getLogger(__name__)
+                
+                fail_mode = binding.binding.fail_behavior
+                if fail_mode == FailBehavior.FAIL_RUN:
+                    logger.error("Hook '%s' failed. Failing run. Error: %s", binding.hook_name, e)
+                    raise
+                elif fail_mode == FailBehavior.SKIP_HOOK:
+                    logger.warning("Hook '%s' failed. Skipping hook. Error: %s", binding.hook_name, e)
+                    continue
+                elif fail_mode == FailBehavior.WARN_ONLY:
+                    logger.warning("Hook '%s' failed. Warning only. Error: %s", binding.hook_name, e)
+                    continue
+                elif fail_mode == FailBehavior.ROUTE_TO_DLQ:
+                    logger.error("Hook '%s' failed with ROUTE_TO_DLQ. Not natively supported in HookRunner yet. Failing. Error: %s", binding.hook_name, e)
+                    raise
+                else:
+                    raise
 
         return HookRunSummary(
             final_payload=current_payload,

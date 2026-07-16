@@ -115,8 +115,19 @@ class AssignInvestmentIdsHook(
     ) -> HookExecutionResult[BatchPayload]:
         df = payload.frame
 
-        # Placeholder implementation for now.
-        # Later replace with real dataframe logic that adds canonical_id.
+        import polars as pl
+        if df is not None:
+            df = df.with_columns(
+                pl.concat_str(
+                    [
+                        pl.lit(params.id_prefix),
+                        pl.col("symbol").cast(pl.Utf8).fill_null(""),
+                        pl.col("trade_date").cast(pl.Utf8).fill_null(""),
+                        pl.col("account_name").cast(pl.Utf8).fill_null(""),
+                    ],
+                    separator="-"
+                ).alias("canonical_id")
+            )
 
         updated_payload = payload.with_frame(df)
 

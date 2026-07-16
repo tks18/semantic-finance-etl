@@ -71,21 +71,8 @@ class SQLiteQuerySourceReader(SourceReader[None]):
         The result is immediately converted to ``.lazy()`` by the caller.
         """
         connection = sqlite3.connect(str(db_path))
-        connection.row_factory = sqlite3.Row
 
         try:
-            cursor = connection.cursor()
-            cursor.execute(sql)
-            rows = cursor.fetchall()
-            column_names = [desc[0] for desc in cursor.description or []]
-
-            if not rows:
-                # Return empty DataFrame with correct column names.
-                return pl.DataFrame({col: [] for col in column_names})
-
-            return pl.DataFrame(
-                [dict(row) for row in rows],
-                infer_schema_length=1000,
-            )
+            return pl.read_database(query=sql, connection=connection)
         finally:
             connection.close()

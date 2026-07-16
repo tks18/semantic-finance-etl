@@ -42,7 +42,7 @@ class ConcatKeyHook(TableHook[BatchPayload, BatchPayload, ConcatKeyParams]):
                 schema_impact=HookSchemaImpact(schema_changed=False),
             )
 
-        expr = pl.concat_str([pl.col(c) for c in params.source_columns], separator=params.separator)
+        expr = pl.concat_str([pl.col(c).fill_null("") for c in params.source_columns], separator=params.separator)
         df = payload.frame.with_columns(expr.alias(params.target_column))
 
         updated = payload.with_frame(df)
@@ -89,8 +89,10 @@ class HashRecordHook(TableHook[BatchPayload, BatchPayload, HashRecordParams]):
         schema = payload.frame.collect_schema()
         cols_to_hash = [name for name in schema.names() if name not in (params.exclude_columns or [])]
 
-        # Use polars built-in hash function
-        expr = pl.concat_str([pl.col(c).cast(pl.Utf8) for c in cols_to_hash], separator="|").hash().cast(pl.Utf8)
+        # Use version-independent SHA256 hashing
+        expr = pl.concat_str([pl.col(c).cast(pl.Utf8).fill_null("") for c in cols_to_hash], separator="|").map_elements(
+            lambda s: hashlib.sha256(s.encode("utf-8")).hexdigest(), return_dtype=pl.Utf8
+        )
         df = payload.frame.with_columns(expr.alias(params.target_column))
 
         updated = payload.with_frame(df)

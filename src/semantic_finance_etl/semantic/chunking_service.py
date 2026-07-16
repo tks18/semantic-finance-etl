@@ -112,8 +112,8 @@ class ChunkingService:
                     chunk_index=idx,
                     chunk_text=chunk_text,
                     title=doc.title,
-                    metadata=doc.metadata,
-                    tags=doc.tags,
+                    metadata=doc.metadata.copy(),
+                    tags=doc.tags.copy(),
                 )
             )
 
@@ -135,8 +135,8 @@ class ChunkingService:
                     chunk_index=0,
                     chunk_text="",
                     title=doc.title,
-                    metadata=doc.metadata,
-                    tags=doc.tags,
+                    metadata=doc.metadata.copy(),
+                    tags=doc.tags.copy(),
                 )
             )
 

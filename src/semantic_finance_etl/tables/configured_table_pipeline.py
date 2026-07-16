@@ -92,6 +92,11 @@ class ConfiguredTablePipeline:
 
         read_payloads: list[ReadPayload] = []
 
+        resolved_post_read = resolver.resolve_bindings_for_stage(
+            stage=HookStage.POST_READ,
+            bindings=source_config.hooks.post_read,
+        )
+
         for group in groups:
             group_read_payloads = reader.read_group(
                 source_config=source_config,
@@ -100,11 +105,6 @@ class ConfiguredTablePipeline:
             )
 
             for read_payload in group_read_payloads:
-                resolved_post_read = resolver.resolve_bindings_for_stage(
-                    stage=HookStage.POST_READ,
-                    bindings=source_config.hooks.post_read,
-                )
-
                 if resolved_post_read:
                     post_read_summary = self._hook_runner.run_stage(
                         project_config=project_config,
@@ -135,11 +135,14 @@ class ConfiguredTablePipeline:
             # Get actual columns present in the schema to safely hash
             present_cols = [c for c in canonical_cols if c in combined_frame.collect_schema().names()]
             if present_cols:
+                import hashlib
                 combined_frame = combined_frame.with_columns(
                     pl.concat_str(
                         [pl.col(c).cast(pl.Utf8).fill_null("") for c in present_cols],
                         separator="||"
-                    ).hash(seed=42).cast(pl.Utf8).alias("_record_hash")
+                    ).map_elements(
+                        lambda s: hashlib.sha256(s.encode("utf-8")).hexdigest(), return_dtype=pl.Utf8
+                    ).alias("_record_hash")
                 )
 
         batch_payload = BatchPayload(

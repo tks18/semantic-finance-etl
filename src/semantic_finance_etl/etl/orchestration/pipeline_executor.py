@@ -160,24 +160,24 @@ class PipelineExecutor:
 
         run_tracker.start_run(run_id=run_id, project_id=project_id)
 
-        self._hook_registry.register_from_search_paths(
-            project_config.runtime.hook_search_paths
-        )
-
-        canonical_pipeline = self._configured_table_pipeline or ConfiguredTablePipeline(
-            hook_registry=self._hook_registry
-        )
-        derived_pipeline = DerivedTablePipeline(
-            hook_registry=self._hook_registry,
-            db_path=db_path,
-        )
-
-        tables_by_name = {t.table_name: t for t in project_config.tables}
         canonical_results: list[TableRunResult] = []
         derived_results: list[DerivedTableResult] = []
         semantic_results: list[SemanticRunResult] = []
 
         try:
+            self._hook_registry.register_from_search_paths(
+                project_config.runtime.hook_search_paths
+            )
+
+            canonical_pipeline = self._configured_table_pipeline or ConfiguredTablePipeline(
+                hook_registry=self._hook_registry
+            )
+            derived_pipeline = DerivedTablePipeline(
+                hook_registry=self._hook_registry,
+                db_path=db_path,
+            )
+            
+            tables_by_name = {t.table_name: t for t in project_config.tables}
             # ----------------------------------------------------------------
             # Phase 1 — Canonical tables
             # ----------------------------------------------------------------
@@ -261,15 +261,26 @@ class PipelineExecutor:
             semantic_results=semantic_results,
         )
 
-        run_tracker.complete_run(
-            run_id=run_id,
-            summary=RunSummary(
-                source_count=len(project_config.sources),
-                table_count=len(canonical_results) + len(derived_results),
-                total_rows_loaded=summary.total_rows_loaded,
-                total_rows_invalid=summary.total_rows_invalid,
-            ),
+        has_errors = (
+            any(r.error for r in canonical_results)
+            or any(r.error for r in derived_results)
+            or any(r.error for r in semantic_results)
         )
+
+        if has_errors:
+            error_msg = "Pipeline completed with child errors."
+            run_tracker.fail_run(run_id=run_id, error=error_msg)
+            summary.error = error_msg
+        else:
+            run_tracker.complete_run(
+                run_id=run_id,
+                summary=RunSummary(
+                    source_count=len(project_config.sources),
+                    table_count=len(canonical_results) + len(derived_results),
+                    total_rows_loaded=summary.total_rows_loaded,
+                    total_rows_invalid=summary.total_rows_invalid,
+                ),
+            )
 
         return summary
 

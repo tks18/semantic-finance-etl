@@ -35,6 +35,7 @@ class ProjectionResult:
     source_table: str
     documents: list[SemanticDocument] = field(default_factory=list)
     skipped_rows: int = 0
+    failed_rows: list[dict[str, Any]] = field(default_factory=list)
     error: str | None = None
 
     @property
@@ -90,8 +91,9 @@ class ProjectionService:
                     semantic_config=semantic_config,
                 )
                 result.documents.append(doc)
-            except Exception:
+            except Exception as e:
                 result.skipped_rows += 1
+                result.failed_rows.append({"row_index": i, "reason": str(e)})
 
         return result
 
@@ -169,12 +171,10 @@ class ProjectionService:
             content = f"{semantic_id}::{sorted(row.items())}"
             return hashlib.sha256(content.encode()).hexdigest()[:32]
 
-        if strategy == "row_index":
+        elif strategy == "row_index":
             return f"{semantic_id}_{row_index}"
 
-        # Fallback — deterministic hash
-        content = f"{semantic_id}::{sorted(row.items())}"
-        return hashlib.sha256(content.encode()).hexdigest()[:32]
+        raise ValueError(f"Unsupported document_id_strategy: {strategy}")
 
 
 class _SafeDict(dict):

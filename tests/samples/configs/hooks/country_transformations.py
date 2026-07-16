@@ -58,7 +58,10 @@ class BuildCountryIndustrySummaryHook(
 
         # Calculate percentage
         final_df = joined.with_columns(
-            (pl.col("country_employees") / pl.col("global_industry_employees")).alias("percent_of_global")
+            pl.when(pl.col("global_industry_employees").fill_null(0) > 0)
+            .then(pl.col("country_employees") / pl.col("global_industry_employees"))
+            .otherwise(pl.lit(0.0))
+            .alias("percent_of_global")
         )
 
         updated_payload = payload.with_output_frame(final_df)

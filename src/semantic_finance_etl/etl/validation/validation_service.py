@@ -84,7 +84,7 @@ class ValidationService:
         # Collect schema from the lazy plan (no data pulled).
         try:
             lazy_schema: dict[str, pl.DataType] = batch_payload.frame.collect_schema()
-        except Exception as exc:
+        except pl.exceptions.ComputeError as exc:
             result.issues.append(
                 SchemaValidationIssue(
                     column="__frame__",
@@ -181,30 +181,41 @@ class ValidationService:
         expected_columns = runtime_table.columns_by_name
         present_columns = set(df.columns)
 
+        def _get_pl_type(type_name: str) -> pl.DataType:
+            t = type_name.strip().lower()
+            if t in {"int", "integer"}: return pl.Int64
+            if t in {"float", "double", "real", "number", "numeric"}: return pl.Float64
+            if t in {"bool", "boolean"}: return pl.Boolean
+            if t in {"date"}: return pl.Date
+            if t in {"datetime", "timestamp"}: return pl.Datetime
+            return pl.Utf8
+
         # Add missing nullable columns as null.
+        missing_exprs = []
         for col_name, col_def in expected_columns.items():
             if col_name not in present_columns:
-                if col_def.nullable:
-                    df = df.with_columns(pl.lit(None).cast(pl.Utf8).alias(col_name))
-                # Non-nullable missing columns are caught by schema validation.
+                pl_type = _get_pl_type(col_def.type_name)
+                if col_def.default is not None:
+                    missing_exprs.append(pl.lit(col_def.default).cast(pl_type).alias(col_name))
+                elif col_def.nullable:
+                    missing_exprs.append(pl.lit(None).cast(pl_type).alias(col_name))
+                    
+        if missing_exprs:
+            df = df.with_columns(missing_exprs)
 
-        # Row-level null / non-nullable check — build an error mask.
-        error_flags: pl.Series = pl.Series("__has_error__", [False] * len(df))
-
-        error_messages: list[list[str]] = [[] for _ in range(len(df))]
+        # Vectorized batch-validation error construction
+        error_conditions = []
 
         for col_name, col_def in expected_columns.items():
             if col_name not in df.columns:
                 continue
 
             if not col_def.nullable and col_def.default is None:
-                null_mask = df[col_name].is_null()
-                for i, is_null in enumerate(null_mask):
-                    if is_null:
-                        error_flags[i] = True
-                        error_messages[i].append(
-                            f"Column '{col_name}' is required but null."
-                        )
+                error_conditions.append(
+                    pl.when(pl.col(col_name).is_null())
+                    .then(pl.lit(f"Column '{col_name}' is required but null."))
+                    .otherwise(pl.lit(""))
+                )
 
         # Uniqueness checks for PK columns.
         if runtime_table.primary_key_fields:
@@ -212,24 +223,26 @@ class ValidationService:
                 c for c in runtime_table.primary_key_fields if c in df.columns
             ]
             if pk_cols:
-                duplicate_mask = df.select(
-                    pl.struct(pk_cols).is_duplicated().alias("__dup__")
-                )["__dup__"]
-                for i, is_dup in enumerate(duplicate_mask):
-                    if is_dup:
-                        error_flags[i] = True
-                        error_messages[i].append(
-                            f"Duplicate primary key on columns {pk_cols}."
-                        )
+                error_conditions.append(
+                    pl.when(pl.struct(pk_cols).is_duplicated())
+                    .then(pl.lit(f"Duplicate primary key on columns {pk_cols}."))
+                    .otherwise(pl.lit(""))
+                )
 
-        # Attach error metadata and split.
-        error_series = pl.Series("__error_messages__", ["; ".join(m) for m in error_messages])
-        error_flag_series = pl.Series("__has_error__", list(error_flags))
-
-        df = df.with_columns([
-            error_flag_series,
-            error_series,
-        ])
+        if error_conditions:
+            df = df.with_columns(
+                pl.concat_list(error_conditions).list.eval(
+                    pl.element().filter(pl.element() != "")
+                ).list.join("; ").alias("__error_messages__")
+            )
+            df = df.with_columns(
+                (pl.col("__error_messages__").str.len_chars() > 0).alias("__has_error__")
+            )
+        else:
+            df = df.with_columns([
+                pl.lit(False).alias("__has_error__"),
+                pl.lit("").alias("__error_messages__")
+            ])
 
         valid_df = df.filter(~pl.col("__has_error__")).drop(
             ["__has_error__", "__error_messages__"]

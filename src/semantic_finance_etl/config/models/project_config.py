@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from semantic_finance_etl.config.models.runtime_config import RuntimeConfig
 from semantic_finance_etl.config.models.semantic_config import SemanticConfig
@@ -9,6 +9,7 @@ from semantic_finance_etl.config.models.table_config import TableConfig
 
 
 class ProjectMetadata(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     project_id: str
     name: str
     description: str | None = None
@@ -16,6 +17,7 @@ class ProjectMetadata(BaseModel):
 
 
 class ProjectConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     project: ProjectMetadata
     runtime: RuntimeConfig = Field(default_factory=RuntimeConfig)
 

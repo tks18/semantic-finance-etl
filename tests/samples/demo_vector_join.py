@@ -28,10 +28,9 @@ print("--- Vector to Source Row Lineage Query ---")
 cursor.execute(sql)
 for row in cursor.fetchall():
     print(f"Vector ID: {row[0]}")
-    print(f"Original Company ID: {row[2]}")
-    print(f"Original Company Name: {row[3]}")
-    print(f"Record Hash: {row[4]}")
-    print(f"Chunk Text: {row[1][:60]}...")
+    print(f"Original Company ID: {row[1]}")
+    print(f"Original Company Name: {row[2]}")
+    print(f"Record Hash: {row[3]}")
     print("-" * 50)
 
 conn.close()

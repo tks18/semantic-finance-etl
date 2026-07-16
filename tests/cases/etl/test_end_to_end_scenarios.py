@@ -29,7 +29,7 @@ def e2e_config_dir():
         runtime_yaml = temp_path / "configs" / "runtime.yaml"
         runtime_content = runtime_yaml.read_text()
         runtime_content = runtime_content.replace(
-            "tests/output/app4.db", str(output_db_path).replace("\\", "/")
+            "../../output/app4.db", str(output_db_path).replace("\\", "/")
         )
         # Append log_dir
         log_dir_path = temp_path / "logs"
@@ -231,9 +231,9 @@ def test_full_pipeline_idempotency_and_modifications(e2e_config_dir):
         cur.execute("SELECT COUNT(*) as c FROM etl_semantic_index WHERE source_table = 'industry_stats'")
         assert cur.fetchone()["c"] == 150
         
-        # Verify vector tables are also present
+        # Verify vector tables are also present but should be empty (no mock all-zero embeddings per Issue 25)
         cur.execute("SELECT COUNT(*) as c FROM etl_semantic_vectors")
-        assert cur.fetchone()["c"] == 55992 + 150
+        assert cur.fetchone()["c"] == 0
         
         # Verify logs were created
         log_file = config_dir.parent / "logs" / "etl.log"

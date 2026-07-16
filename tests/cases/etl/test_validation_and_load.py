@@ -9,8 +9,14 @@ from semantic_finance_etl.etl.validation.validation_service import ValidationSer
 from semantic_finance_etl.etl.loading.load_service import LoadService
 
 
-def test_validation_and_load(project_config):
-    summary = PipelineExecutor().run("tests/samples/configs")
+def test_validation_and_load(project_config, tmp_path):
+    project_config.runtime.local_db_path = str(tmp_path / "test_app.db")
+    
+    class MockConfigService:
+        def load(self, path):
+            return project_config
+            
+    summary = PipelineExecutor(config_service=MockConfigService()).run("tests/samples/configs")
 
     result = summary.canonical_results[0]
     table_config = project_config.tables[0]

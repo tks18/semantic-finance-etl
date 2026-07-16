@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from semantic_finance_etl.config.models.transform_config import StageHookBindings
 from semantic_finance_etl.domain.enums.load_mode import LoadMode
@@ -10,6 +10,7 @@ from semantic_finance_etl.domain.enums.table_kind import TableKind
 
 
 class ColumnConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     name: str
     type: str
     nullable: bool = True
@@ -20,28 +21,33 @@ class ColumnConfig(BaseModel):
 
 
 class PrimaryKeyStrategyConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     type: str
     fields: list[str] = Field(default_factory=list)
 
 
 class ForeignKeyConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     columns: list[str]
     target_table: str
     target_columns: list[str]
 
 
 class LoadConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     mode: LoadMode = LoadMode.APPEND
     record_hash: bool = False
     deduplicate_before_load: bool = False
 
 
 class BuildConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     strategy: str = "python_hook"
     hooks: StageHookBindings = Field(default_factory=StageHookBindings)
 
 
 class TableConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     table_name: str
     table_kind: TableKind = TableKind.CANONICAL
     description: str | None = None
@@ -70,5 +76,17 @@ class TableConfig(BaseModel):
             raise ValueError(
                 f"Derived table '{self.table_name}' must define 'build'."
             )
+            
+        if self.primary_key_strategy:
+            for field in self.primary_key_strategy.fields:
+                if field not in column_names:
+                    raise ValueError(f"Primary key field '{field}' not found in columns of table '{self.table_name}'.")
+                    
+        for fk in self.foreign_keys:
+            if len(fk.columns) != len(fk.target_columns):
+                raise ValueError(f"Foreign key in table '{self.table_name}' has mismatched column count: {len(fk.columns)} local vs {len(fk.target_columns)} target.")
+            for local_col in fk.columns:
+                if local_col not in column_names:
+                    raise ValueError(f"Foreign key local column '{local_col}' not found in columns of table '{self.table_name}'.")
 
         return self

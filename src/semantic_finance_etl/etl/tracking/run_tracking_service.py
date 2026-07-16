@@ -171,6 +171,8 @@ class RunTrackingService:
 
     def list_runs(self, limit: int = 50) -> list[dict[str, Any]]:
         """List the most recent ETL runs, newest first."""
+        if limit < 0:
+            raise ValueError(f"Limit cannot be negative: {limit}")
         connection = sqlite3.connect(str(self._db_path))
         connection.row_factory = sqlite3.Row
         try:
