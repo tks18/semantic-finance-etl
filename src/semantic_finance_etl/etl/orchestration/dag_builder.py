@@ -50,6 +50,12 @@ class DAGBuilder:
     def build(self, tables: list[TableConfig]) -> BuildPlan:
         canonical = [t for t in tables if t.table_kind == TableKind.CANONICAL]
         derived = [t for t in tables if t.table_kind == TableKind.DERIVED]
+        
+        known_tables = {t.table_name for t in tables}
+        for d in derived:
+            for dep in d.depends_on:
+                if dep not in known_tables:
+                    raise ValueError(f"Derived table '{d.table_name}' depends on undeclared table '{dep}'.")
 
         ordered_derived = self._topological_sort(derived)
 
