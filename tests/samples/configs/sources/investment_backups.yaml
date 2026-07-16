@@ -1,0 +1,14 @@
+source_id: investment_backups
+discoverer: filesystem
+path: tests/samples/dbs
+recursive: true
+include_patterns: ['*.db']
+selector: latest_modified
+grouper: single_group
+
+reader:
+  type: sqlite_query
+  sql: 'SELECT * FROM companies'
+
+target_tables:
+  - companies

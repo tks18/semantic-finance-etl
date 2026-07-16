@@ -1,0 +1,37 @@
+table_name: country_industry_summary
+table_kind: derived
+description: Summary combining canonical companies and derived industry stats
+
+columns:
+  - name: country
+    type: str
+    primary_key_part: true
+  - name: industry
+    type: str
+    primary_key_part: true
+  - name: country_employees
+    type: int
+  - name: global_industry_employees
+    type: int
+  - name: percent_of_global
+    type: float
+
+depends_on:
+  - companies
+  - industry_stats
+
+foreign_keys:
+  - columns: [industry]
+    target_table: industry_stats
+    target_columns: [industry]
+
+build:
+  strategy: python_hook
+  hooks:
+    post_derive:
+      - hook: build_country_industry_summary
+        order: 10
+
+load:
+  mode: replace
+  record_hash: true

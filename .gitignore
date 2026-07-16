@@ -133,3 +133,7 @@ tests/rest/request-bodies
 _df_cache/*
 ~*
 ui.lock
+.mypy_cache/
+.pytest_cache/
+tests/output/
+tests/samples/output

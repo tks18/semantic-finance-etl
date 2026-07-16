@@ -91,5 +91,9 @@ module.exports = {
       filename: 'pyproject.toml',
       updater: tracker,
     },
+    {
+      filename: 'src/semantic_finance_etl/__init__.py',
+      updater: tracker,
+    },
   ],
 };

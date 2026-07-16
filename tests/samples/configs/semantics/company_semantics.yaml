@@ -1,0 +1,17 @@
+semantic_id: company_semantics
+source_table: companies
+source_pk_field: id
+
+projection:
+  title_template: "Company: {name}"
+  body_template: "{name} is a company in the {industry} sector, located in {locality}, {country}. Founded in {year_founded}, it employs {current_employees} people."
+  metadata_fields:
+    - id
+    - industry
+    - country
+  tag_fields:
+    - industry
+
+chunking:
+  chunk_size: 500
+  chunk_overlap: 50

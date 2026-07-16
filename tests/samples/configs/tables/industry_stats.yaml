@@ -1,0 +1,28 @@
+table_name: industry_stats
+table_kind: derived
+description: Aggregated stats by industry
+
+columns:
+  - name: industry
+    type: str
+    primary_key_part: true
+  - name: company_count
+    type: int
+  - name: total_employees
+    type: int
+  - name: avg_year_founded
+    type: int
+
+depends_on:
+  - companies
+
+build:
+  strategy: python_hook
+  hooks:
+    post_derive:
+      - hook: build_industry_stats
+        order: 10
+
+load:
+  mode: replace
+  record_hash: true

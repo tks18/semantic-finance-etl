@@ -1,29 +1,79 @@
 [project]
 name = "semantic-finance-etl"
-version = "0.1.1-0"
+version = "0.1.1-10"
+license = "GPL-3.0-only"
+license-files = ["LICENSE"]
+url = "https://github.com/tks18/semantic-finance-etl"
 description = "A local, high-performance, configuration-driven ETL application that ingests disparate personal finance data (custom SQL dumps, messy vendor Excels) and builds an AI-Ready, vector-embedded SQLite database using Polars and sqlite-vec"
 authors = [
   { name="Shan", email="tksudharshan@gmail.com" },
 ]
 readme = "README.md"
-keywords = ["Personal-finance", "Polars", "ETL", "Big Data", "Excel", "Power BI", "Automation", "Analytics", "Finance", "Investments", "Finance-Manager"]
+
+keywords = ["Personal-finance", "Polars", "ETL", "Big Data", "Excel", 
+            "Power BI", "Automation", "Analytics", "Finance", "Investments", "Finance-Manager"]
+
+classifiers = [
+    "Intended Audience :: Developers",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Intended Audience :: Information Technology",
+    "Topic :: Office/Business :: Financial :: Spreadsheet",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Utilities",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+    "Natural Language :: English"
+]
+
 requires-python = ">=3.13"
 dependencies = [
+    "connectorx>=0.4.5",
     "customtkinter>=6.0.0",
     "fastexcel>=0.20.2",
     "pandas>=3.0.3",
     "polars>=1.42.1",
+    "pyarrow>=25.0.0",
     "pydantic>=2.13.4",
+    "pydantic-settings>=2.14.2",
+    "pyyaml>=6.0.3",
+    "rich>=15.0.0",
     "sentence-transformers>=5.6.0",
     "sqlite-vec>=0.1.9",
+    "torch>=2.13.0",
 ]
 
 [dependency-groups]
 dev = [
+    "mypy>=2.3.0",
     "poethepoet>=0.48.0",
+    "pytest>=9.1.1",
+    "ruff>=0.15.21",
     "tkreload>=1.0.4",
 ]
 
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
+[build-system]
+requires = ["uv_build>=0.8.15,<0.11.8"]
+build-backend = "uv_build"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
 
 [project.urls]
 Homepage = "https://github.com/tks18/semantic-finance-etl"
@@ -32,5 +82,28 @@ Repository = "https://github.com/tks18/semantic-finance-etl"
 Issues = "https://github.com/tks18/semantic-finance-etl/issues"
 Changelog = "https://github.com/tks18/semantic-finance-etl/releases"
 
+[project.scripts]
+shan-etl-engine = "semantic_finanace_etl.ui.cli.:main"
+
 [tool.poe.tasks]
 dev = "tkreload main.py"
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.13"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+no_implicit_optional = true
+strict_optional = true
+pretty = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
