@@ -18,11 +18,19 @@ class RuntimeColumnDefinition:
 
 
 @dataclass(slots=True)
+class RuntimeForeignKeyDefinition:
+    columns: list[str]
+    target_table: str
+    target_columns: list[str]
+
+
+@dataclass(slots=True)
 class RuntimeTableDefinition:
     table_name: str
     table_kind: str
     columns: list[RuntimeColumnDefinition] = field(default_factory=list)
     primary_key_fields: list[str] = field(default_factory=list)
+    foreign_keys: list[RuntimeForeignKeyDefinition] = field(default_factory=list)
     load_mode: str = "append"
     record_hash_enabled: bool = False
 
@@ -48,7 +56,15 @@ class RuntimeTableDefinition:
             )
             for column in table_config.columns
         ]
-
+        
+        # Inject system metadata columns for canonical tables
+        if table_config.table_kind.value == "canonical":
+            columns.append(RuntimeColumnDefinition(name="_file_hash", type_name="str", nullable=True))
+            columns.append(RuntimeColumnDefinition(name="_source_file", type_name="str", nullable=True))
+        
+        if table_config.load.record_hash:
+            columns.append(RuntimeColumnDefinition(name="_record_hash", type_name="str", nullable=True))
+            
         primary_key_fields: list[str] = []
 
         if table_config.primary_key_strategy is not None:
@@ -58,11 +74,21 @@ class RuntimeTableDefinition:
                 column.name for column in columns if column.primary_key_part
             ]
 
+        foreign_keys = [
+            RuntimeForeignKeyDefinition(
+                columns=list(fk.columns),
+                target_table=fk.target_table,
+                target_columns=list(fk.target_columns)
+            )
+            for fk in table_config.foreign_keys
+        ]
+
         return cls(
             table_name=table_config.table_name,
             table_kind=table_config.table_kind.value,
             columns=columns,
             primary_key_fields=primary_key_fields,
+            foreign_keys=foreign_keys,
             load_mode=table_config.load.mode.value,
             record_hash_enabled=table_config.load.record_hash,
         )
