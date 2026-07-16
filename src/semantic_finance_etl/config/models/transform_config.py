@@ -8,14 +8,14 @@ from semantic_finance_etl.domain.enums.fail_behavior import FailBehavior
 
 
 class ExplicitHookReference(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
     module: str
     class_name: str = Field(alias="class")
 
 
 class HookBindingConfig(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
     hook: str | None = None
     hook_ref: ExplicitHookReference | None = None
@@ -48,6 +48,7 @@ class HookBindingConfig(BaseModel):
 
 
 class StageHookBindings(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     post_read: list[HookBindingConfig] = Field(default_factory=list)
     pre_append: list[HookBindingConfig] = Field(default_factory=list)
     post_append: list[HookBindingConfig] = Field(default_factory=list)

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class RuntimeConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     local_db_path: str = "./data/app.db"
     log_level: str = "INFO"
     log_dir: str | None = None
