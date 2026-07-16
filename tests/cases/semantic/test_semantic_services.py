@@ -67,9 +67,21 @@ class TestProjectionService:
         assert result.documents[0].body == "Name is A, value is ."
 
     def test_project_catches_exceptions_and_increments_skipped(self, sample_semantic_config: SemanticConfig):
-        # We can simulate an exception by passing something that breaks the process
-        # Or just trust the test above. For simplicity, we skip complex mocking here.
-        pass
+        lf = pl.DataFrame({
+            "name": ["A", "B"],
+            "category": ["X", "Y"]
+        }).lazy()
+        
+        sample_semantic_config.document_id_strategy = "unsupported_strategy"
+        
+        svc = ProjectionService()
+        result = svc.project(lazy_frame=lf, semantic_config=sample_semantic_config)
+        
+        assert result.document_count == 0
+        assert result.skipped_rows == 2
+        assert len(result.failed_rows) == 2
+        assert result.failed_rows[0]["row_index"] == 0
+        assert "Unsupported document_id_strategy" in result.failed_rows[0]["reason"]
 
 
 class TestChunkingService:
